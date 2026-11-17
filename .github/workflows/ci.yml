@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-pure-tests:
+    name: Windows build and pure policy tests
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build and run geometry/recovery and layout policy tests
+        shell: pwsh
+        run: ./build.ps1 -PureTest -BuildDir artifacts/ci-build
+      - name: Record CI scope
+        shell: pwsh
+        run: |
+          'CI runs the explicit --geometry-tests and --layout-tests entry points only. The interactive Win32/WPF fixture suite and real UU/device checks require a local desktop and are not executed by CI.' >> $env:GITHUB_STEP_SUMMARY

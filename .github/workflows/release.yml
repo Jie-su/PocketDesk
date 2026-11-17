@@ -1,0 +1,75 @@
+name: Prerelease
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package-and-release:
+    name: Build, test and publish Windows prerelease
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Validate tag and release notes
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') { throw 'Expected a SemVer v* tag.' }
+          $version = $env:RELEASE_TAG.Substring(1)
+          $project = [xml](Get-Content src/PocketDesk/PocketDesk.csproj -Raw)
+          if ([string]$project.Project.PropertyGroup.Version -ne $version) { throw 'Tag and project version differ.' }
+          if (-not (Test-Path -LiteralPath "release-notes/$env:RELEASE_TAG.md" -PathType Leaf)) { throw 'Missing release notes.' }
+      - name: Build and run pure policy tests; publish into an isolated directory
+        shell: pwsh
+        run: ./build.ps1 -PureTest -Publish -BuildDir artifacts/release-build -PublishDir artifacts/release-publish
+      - name: Package allowlisted runtime files, public documents and licenses
+        shell: pwsh
+        run: ./scripts/package-release.ps1 -PublishDir artifacts/release-publish -OutputDir artifacts/release-assets -Version ($env:RELEASE_TAG.Substring(1))
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: PocketDesk-${{ github.ref_name }}-win-x64
+          path: |
+            artifacts/release-assets/*.zip
+            artifacts/release-assets/SHA256SUMS
+          if-no-files-found: error
+          overwrite: true
+          compression-level: 0
+          retention-days: 14
+      - name: Create GitHub prerelease once
+        shell: pwsh
+        run: |
+          $existing = gh release view $env:RELEASE_TAG --json isPrerelease 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if (-not ($existing | ConvertFrom-Json).isPrerelease) { throw 'Existing release is not a prerelease; refusing to alter it.' }
+            Write-Host 'Prerelease already exists; existing assets and notes are left unchanged.'
+          } else {
+            $zip = "artifacts/release-assets/PocketDesk-$env:RELEASE_TAG-win-x64.zip"
+            gh release create $env:RELEASE_TAG $zip artifacts/release-assets/SHA256SUMS --verify-tag --prerelease --title "PocketDesk $env:RELEASE_TAG" --notes-file "release-notes/$env:RELEASE_TAG.md"
+            if ($LASTEXITCODE -ne 0) { throw 'GitHub prerelease creation failed.' }
+          }
+          $published = gh release view $env:RELEASE_TAG --json isPrerelease,isDraft,url,assets
+          if ($LASTEXITCODE -ne 0) { throw 'Could not verify the published prerelease.' }
+          $release = $published | ConvertFrom-Json
+          if (-not $release.isPrerelease -or $release.isDraft) { throw 'Expected a published prerelease.' }
+          foreach ($name in @("PocketDesk-$env:RELEASE_TAG-win-x64.zip", 'SHA256SUMS')) {
+            $asset = @($release.assets | Where-Object { $_.name -eq $name -and $_.size -gt 0 })
+            if ($asset.Count -ne 1) { throw "Expected one nonempty release asset: $name" }
+          }
+          "Prerelease: $($release.url)" >> $env:GITHUB_STEP_SUMMARY
+          'Validation: Windows Release build plus pure geometry/recovery and layout tests. The interactive desktop fixture suite and real-device checks are not run by this workflow.' >> $env:GITHUB_STEP_SUMMARY

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" role="img" aria-labelledby="title desc">
+  <title id="title">Phone landscape / 手机横屏 — screenshot placeholder</title>
+  <desc id="desc">截图占位，不是产品实拍。Screenshot placeholder; not an actual product capture.</desc>
+  <rect width="960" height="600" rx="28" fill="#111827"/>
+  <rect x="36" y="36" width="888" height="528" rx="20" fill="#182235" stroke="#64748b" stroke-width="2" stroke-dasharray="12 10"/>
+  <g font-family="Segoe UI, Microsoft YaHei, sans-serif" text-anchor="middle">
+    <text x="480" y="196" fill="#93c5fd" font-size="24" letter-spacing="4">POCKETDESK</text>
+    <text x="480" y="284" fill="#f8fafc" font-size="34">Phone landscape / 手机横屏</text>
+    <text x="480" y="360" fill="#cbd5e1" font-size="26">截图占位 · 非产品实拍</text>
+    <text x="480" y="404" fill="#94a3b8" font-size="22">Screenshot placeholder — not a product capture</text>
+    <text x="480" y="490" fill="#64748b" font-size="20">landscape.png</text>
+  </g>
+</svg>

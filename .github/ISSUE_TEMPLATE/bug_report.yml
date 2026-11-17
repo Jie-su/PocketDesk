@@ -1,0 +1,24 @@
+name: 问题反馈 / Bug report
+description: 报告显示、设备识别、窗口或恢复问题
+title: "[Bug] "
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: 使用环境
+      description: 请填写版本和型号，无需填写账号、设备自定义名称或远程连接码。
+      placeholder: "PocketDesk 版本：\nWindows 版本：\nUU 主机端 / 控制端版本：\n手机或平板型号：\n横屏 / 竖屏及分辨率："
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤与实际表现
+      placeholder: "1. 连接 UU 并开启超级屏\n2. …\n预期表现：\n实际表现："
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图或诊断片段（可选）
+      description: 请先遮盖私人窗口内容、姓名、账号和路径。不要直接上传 recovery.json 或完整 diagnostics.log。
