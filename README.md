@@ -15,7 +15,6 @@
 ![WPF](https://img.shields.io/badge/.NET-10%20%7C%20WPF-512BD4)
 [![Tests](https://img.shields.io/badge/tests-186%20passed-brightgreen)](TESTING.md)
 [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![CI](https://github.com/Jie-su/PocketDesk/actions/workflows/ci.yml/badge.svg)](https://github.com/Jie-su/PocketDesk/actions/workflows/ci.yml)
 
 [下载](#下载) · [功能](#功能) · [安装](#安装) · [使用](#使用) · [限制](#已知限制) · [开发](#开发)
 
@@ -89,7 +88,7 @@ PocketDesk 只读取 UU 可访问性界面，不主动激活或恢复 UU 窗口�
 
 ## 开发
 
-需要 Windows x64、PowerShell 和 .NET 10 SDK：
+需要 Windows x64、PowerShell 7 和 .NET 10 SDK：
 
 ```powershell
 git clone https://github.com/Jie-su/PocketDesk.git

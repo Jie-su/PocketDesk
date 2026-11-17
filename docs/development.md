@@ -4,7 +4,7 @@
 
 ## 环境与构建
 
-Windows x64、PowerShell、.NET 10 SDK。若仓库的 `.tools/dotnet` 中存在便携 SDK，构建脚本优先使用它；否则使用 PATH 中的 `dotnet`。无需下载或提交本机 SDK。
+Windows x64、PowerShell 7、.NET 10 SDK。脚本使用新版 .NET 路径 API，不以 Windows PowerShell 5 为兼容目标。若仓库的 `.tools/dotnet` 中存在便携 SDK，构建脚本优先使用它；否则使用 PATH 中的 `dotnet`。无需下载或提交本机 SDK。
 
 ```powershell
 ./build.ps1
@@ -22,6 +22,25 @@ CI 或隔离发布可使用独立构建目录，避免覆盖正在运行的开�
 ```
 
 `-PureTest` 与 `-Test` 互斥。前者仅运行无窗口纯策略子集，适用于 CI；后者保留完整交互式夹具。需要本地完整验证时将发布命令中的 `-PureTest` 换成 `-Test`。打包脚本使用公开文件允许列表，包含清理后的文档、截图占位和图标，使相对链接可在发行目录读取；不把本地历史或诊断目录加入发行包。
+
+## 手动预发布
+
+CI 配置已提供，但本次发行仅取得本地验证结果，尚未运行 CI。自动工作流未运行或未完成时，可以使用本地已验证、与标签源码一致的归档手动发布；不要把本地结果表述为 CI 通过。
+
+先确认目标提交、归档与校验文件，再创建并推送标签；如果标签已存在，核对其提交，不覆盖已有标签：
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+推送标签会尝试触发发行工作流；若没有生成发行结果，可以使用 GitHub CLI 手动创建同一预发布。将下列 `<ZIP>` 与 `<SHA256SUMS>` 替换为本次打包输出的真实文件路径：
+
+```text
+gh release create v0.1.0 <ZIP> <SHA256SUMS> --verify-tag --prerelease --notes-file release-notes/v0.1.0.md
+```
+
+执行前检查是否已存在该版本，避免与工作流重复创建或覆盖资产。发布后核对版本标记、预发布状态、资产及 SHA-256 校验文件。
 
 ## 代码结构
 

@@ -15,7 +15,6 @@ Built for an existing UU Remote virtual display · Window library · Manual rota
 ![WPF](https://img.shields.io/badge/.NET-10%20%7C%20WPF-512BD4)
 [![Tests](https://img.shields.io/badge/tests-186%20passed-brightgreen)](TESTING.md)
 [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![CI](https://github.com/Jie-su/PocketDesk/actions/workflows/ci.yml/badge.svg)](https://github.com/Jie-su/PocketDesk/actions/workflows/ci.yml)
 
 [Download](#download) · [Features](#features) · [Install](#install) · [Usage](#usage) · [Limitations](#known-limitations) · [Development](#development)
 
@@ -87,7 +86,7 @@ More details: [User guide](docs/user-guide.md) and [How it works](docs/how-it-wo
 
 ## Development
 
-Requires Windows x64, PowerShell and the .NET 10 SDK:
+Requires Windows x64, PowerShell 7 and the .NET 10 SDK:
 
 ```powershell
 git clone https://github.com/Jie-su/PocketDesk.git

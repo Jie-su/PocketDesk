@@ -2,7 +2,7 @@
 
 [返回首页](README.md) · [开发指南](docs/development.md)
 
-首版在 Windows 11 x64（build 26300）、.NET 10 SDK 和真实 UU 超级屏环境验证。**完整回归 186 项通过、0 失败；Release 构建与发布 0 警告、0 错误。** 其他 Windows 版本尚未全面验证，系统兼容范围以 [Microsoft .NET 10 支持表](https://learn.microsoft.com/en-us/dotnet/core/install/windows) 为准。本页只记录可复现的方法和结论，不发布包含设备身份、窗口信息或用户路径的本地诊断文件。
+首版在 Windows 11 x64（build 26300）、.NET 10 SDK 和真实 UU 超级屏环境验证。**此前完整本地回归为 186 项通过、0 失败；本次发行打包前的本地纯测试为 66 项通过、0 失败。** Release 构建与发布为 0 警告、0 错误。完整桌面夹具没有在本次打包流程中重新运行；仓库已提供 CI 配置，但本次尚未运行，不宣称 CI 通过。其他 Windows 版本尚未全面验证，系统兼容范围以 [Microsoft .NET 10 支持表](https://learn.microsoft.com/en-us/dotnet/core/install/windows) 为准。本页只记录可复现的方法和结论，不发布包含设备身份、窗口信息或用户路径的本地诊断文件。
 
 ## 自动回归
 
@@ -25,7 +25,7 @@ dotnet run --project tests/PocketDesk.Tests/PocketDesk.Tests.csproj -c Release -
 dotnet run --project tests/PocketDesk.Tests/PocketDesk.Tests.csproj -c Release -- --layout-tests
 ```
 
-纯策略子集不等于完整 186 项，不证明真实驱动写入、窗口恢复或手机触控。
+本次发行的 66 项为上述两个纯策略子集在本地的结果；它们不等于完整 186 项，不证明真实驱动写入、窗口恢复或手机触控，也不代表 GitHub Actions 已执行。
 
 | 类别 | 主要覆盖 |
 | --- | --- |
