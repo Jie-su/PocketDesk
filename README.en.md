@@ -30,13 +30,9 @@ PocketDesk is an independent Windows implementation inspired by [Snug](https://g
 
 ## Screenshots
 
-These are **labeled placeholders, not product screenshots**. See the [screenshot folder](docs/screenshots/README.md) to replace them with real captures.
-
 | Phone portrait | Phone landscape |
 | :---: | :---: |
-| ![Portrait placeholder](docs/screenshots/portrait-placeholder.svg) | ![Landscape placeholder](docs/screenshots/landscape-placeholder.svg) |
-| Tablet | Dark mode |
-| ![Tablet placeholder](docs/screenshots/ipad-placeholder.svg) | ![Dark mode placeholder](docs/screenshots/dark-mode-placeholder.svg) |
+| ![Portrait screenshot](docs/screenshots/portrait.png) | ![Landscape screenshot](docs/screenshots/landscape.png) |
 
 ## Features
 

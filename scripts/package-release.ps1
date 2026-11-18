@@ -58,9 +58,9 @@ foreach ($relative in $runtimeFiles) { $files.Add($relative, (Join-Path $Publish
 foreach ($relative in @(
     'README.md', 'README.en.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'TESTING.md', 'CHANGELOG.md',
     "release-notes/v$Version.md", 'docs/user-guide.md', 'docs/how-it-works.md', 'docs/development.md',
-    'docs/screenshots/README.md', 'docs/screenshots/portrait-placeholder.svg',
-    'docs/screenshots/landscape-placeholder.svg', 'docs/screenshots/ipad-placeholder.svg',
-    'docs/screenshots/dark-mode-placeholder.svg', 'src/PocketDesk/Assets/PocketDesk.svg'
+    'docs/screenshots/README.md', 'docs/screenshots/portrait.png',
+    'docs/screenshots/landscape.png',
+    'src/PocketDesk/Assets/PocketDesk.svg'
 )) {
     $files.Add($relative, (Join-Path $root $relative))
 }

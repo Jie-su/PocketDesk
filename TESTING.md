@@ -66,7 +66,7 @@ dotnet run --project tests/PocketDesk.Tests/PocketDesk.Tests.csproj -c Release -
 
 独立工具栏夹具还验证了高 DPI 弹出位置、键盘导航和按钮回调；这些回调仅记录动作，不执行真实旋转、字号调整或恢复。
 
-仓库首页的 SVG 为截图占位，不作为测试证据。
+首页截图展示手机横竖屏效果；测试范围以本页记录为准。
 
 ## 仍需验证
 

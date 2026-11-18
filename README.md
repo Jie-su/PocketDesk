@@ -30,13 +30,9 @@ PocketDesk 是受 [Snug](https://github.com/zephyr4123/snug) 启发的独立 Win
 
 ## 界面预览
 
-以下是**截图占位图，不是产品实拍**。真实截图可放入 [docs/screenshots](docs/screenshots/README.md) 后替换。
-
 | 手机竖屏 | 手机横屏 |
 | :---: | :---: |
-| ![竖屏截图占位](docs/screenshots/portrait-placeholder.svg) | ![横屏截图占位](docs/screenshots/landscape-placeholder.svg) |
-| 平板 | 深色模式 |
-| ![平板截图占位](docs/screenshots/ipad-placeholder.svg) | ![深色模式截图占位](docs/screenshots/dark-mode-placeholder.svg) |
+| ![竖屏截图](docs/screenshots/portrait.png) | ![横屏截图](docs/screenshots/landscape.png) |
 
 ## 功能
 

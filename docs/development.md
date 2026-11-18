@@ -21,7 +21,7 @@ CI 或隔离发布可使用独立构建目录，避免覆盖正在运行的开�
 ./scripts/package-release.ps1 -PublishDir artifacts/release-publish -OutputDir artifacts/release-assets -Version 0.1.0
 ```
 
-`-PureTest` 与 `-Test` 互斥。前者仅运行无窗口纯策略子集，适用于 CI；后者保留完整交互式夹具。需要本地完整验证时将发布命令中的 `-PureTest` 换成 `-Test`。打包脚本使用公开文件允许列表，包含清理后的文档、截图占位和图标，使相对链接可在发行目录读取；不把本地历史或诊断目录加入发行包。
+`-PureTest` 与 `-Test` 互斥。前者仅运行无窗口纯策略子集，适用于 CI；后者保留完整交互式夹具。需要本地完整验证时将发布命令中的 `-PureTest` 换成 `-Test`。打包脚本使用公开文件允许列表，包含清理后的文档、手机截图和图标，使相对链接可在发行目录读取；不把本地历史或诊断目录加入发行包。
 
 ## 手动预发布
 
