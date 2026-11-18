@@ -18,7 +18,7 @@ CI 或隔离发布可使用独立构建目录，避免覆盖正在运行的开�
 ```powershell
 ./build.ps1 -PureTest -BuildDir artifacts/ci-build
 ./build.ps1 -PureTest -Publish -BuildDir artifacts/release-build -PublishDir artifacts/release-publish
-./scripts/package-release.ps1 -PublishDir artifacts/release-publish -OutputDir artifacts/release-assets -Version 0.1.1
+./scripts/package-release.ps1 -PublishDir artifacts/release-publish -OutputDir artifacts/release-assets -Version 0.2.1
 ```
 
 `-PureTest` 与 `-Test` 互斥。前者仅运行无窗口纯策略子集，适用于 CI；后者保留完整交互式夹具。需要本地完整验证时将发布命令中的 `-PureTest` 换成 `-Test`。打包脚本使用公开文件允许列表，包含清理后的文档、手机截图和图标，使相对链接可在发行目录读取；不把本地历史或诊断目录加入发行包。
@@ -30,14 +30,14 @@ CI 或隔离发布可使用独立构建目录，避免覆盖正在运行的开�
 先确认目标提交、归档与校验文件，再创建并推送标签；如果标签已存在，核对其提交，不覆盖已有标签：
 
 ```powershell
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.2.1
+git push origin v0.2.1
 ```
 
 推送标签会尝试触发发行工作流；若没有生成发行结果，可以使用 GitHub CLI 手动创建同一预发布。将下列 `<ZIP>` 与 `<SHA256SUMS>` 替换为本次打包输出的真实文件路径：
 
 ```text
-gh release create v0.1.1 <ZIP> <SHA256SUMS> --verify-tag --prerelease --notes-file release-notes/v0.1.1.md
+gh release create v0.2.1 <ZIP> <SHA256SUMS> --verify-tag --prerelease --notes-file release-notes/v0.2.1.md
 ```
 
 执行前检查是否已存在该版本，避免与工作流重复创建或覆盖资产。发布后核对版本标记、预发布状态、资产及 SHA-256 校验文件。

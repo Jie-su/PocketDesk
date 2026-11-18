@@ -1,314 +1,233 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using PocketDesk.Core;
+using PocketDesk.Native;
 
 namespace PocketDesk;
 
-/// <summary>A small workspace return strip; UU owns desktop/keyboard controls.</summary>
+/// <summary>One edge strip and one expandable window, so native file pickers have a stable owner.</summary>
 public sealed class ToolbarWindow : Window
 {
-    private readonly Button minus;
-    private readonly Button plus;
-    private readonly Button rotate;
-    private readonly Button operations;
-    private readonly TextBlock notice;
-    private readonly TextBlock menuNotice;
-    private readonly Grid outerRoot;
-    private readonly Grid phoneSurface;
-    private readonly Grid actionRow;
-    private readonly Border menuRoot;
-    private readonly Popup menu;
-    private ToolbarLayout layout = ToolbarLayout.Measure(402, 874);
+    private readonly Grid surface = new();
+    private readonly Border page;
+    private readonly Button handle, shrink, poolTab, toolsTab, rotate, minus, plus, gestures, scrollButtons, autoZoom;
+    private readonly TextBlock label, notice;
+    private readonly ContentControl pool = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
+    private readonly ScrollViewer poolScroll, toolsScroll;
+    private ToolbarPlacement? placement;
     private HwndSource? source;
-    private double contentScale = 1;
     private bool exiting;
+    public bool IsExpanded { get; private set; }
+    public event Action<bool>? ExpansionChanged;
+    public event Action? ToggleGesturesRequested;
+    public event Action? ToggleAutoZoomRequested;
+    public event Action? ToggleScrollButtonsRequested;
 
-    public ToolbarWindow(Action library, Action<int> zoom, Action finish, Action rotation)
+    public ToolbarWindow(Action settings, Action<int> zoom, Action finish, Action rotation)
     {
-        ArgumentNullException.ThrowIfNull(library);
-        ArgumentNullException.ThrowIfNull(zoom);
-        ArgumentNullException.ThrowIfNull(finish);
-        ArgumentNullException.ThrowIfNull(rotation);
         SetResourceReference(StyleProperty, typeof(Window));
-        Title = "PocketDesk · 控制条";
+        Title = "PocketDesk · 手机工作台";
         Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/PocketDesk;component/Assets/PocketDesk.ico"));
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
-        ShowInTaskbar = true;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        ShowInTaskbar = false;
         ShowActivated = false;
         Topmost = true;
-        Height = layout.Height;
         SetResourceReference(BackgroundProperty, "Rail");
 
-        outerRoot = new Grid { ClipToBounds = true };
-        phoneSurface = new Grid { Height = layout.Height };
-        actionRow = new Grid
-        {
-            Width = layout.ContentMaxWidth,
-            Height = 44,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72) });
-        actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72) });
+        handle = Button("展开 PocketDesk", Expand);
+        handle.MinHeight = handle.MinWidth = 0;
+        handle.Padding = new Thickness(0);
+        handle.BorderThickness = new Thickness(0);
+        handle.SetResourceReference(Control.BackgroundProperty, "Rail");
+        handle.ToolTip = "展开常用应用和运行中的窗口";
+        label = Text("⌃   PocketDesk", 13, "Accent", true);
+        handle.Content = label;
+        surface.Children.Add(handle);
 
-        var back = MakeBarButton("应用");
-        back.SetResourceReference(Control.BackgroundProperty, "SoftBlue");
-        back.SetResourceReference(Control.ForegroundProperty, "Accent");
-        back.BorderThickness = new Thickness(0);
-        back.ToolTip = "返回应用列表 · Ctrl + Alt + F12";
-        AutomationProperties.SetName(back, "返回应用列表");
-        back.Click += (_, _) => { CloseMenu(); library(); };
-        actionRow.Children.Add(back);
+        var header = new DockPanel();
+        shrink = Button("收起", Collapse);
+        DockPanel.SetDock(shrink, Dock.Right);
+        header.Children.Add(shrink);
+        var titles = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) };
+        titles.Children.Add(Text("PocketDesk", 18, "PrimaryText", true));
+        notice = Text("手机工作台", 12, "Muted");
+        titles.Children.Add(notice);
+        header.Children.Add(titles);
 
-        notice = new TextBlock
-        {
-            FontSize = 12,
-            TextWrapping = TextWrapping.NoWrap,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(8, 0, 8, 0)
-        };
-        notice.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-        Grid.SetColumn(notice, 1);
-        actionRow.Children.Add(notice);
+        poolTab = Button("应用与窗口", () => ShowTools(false));
+        toolsTab = Button("操作", () => ShowTools(true));
+        var nav = Row(poolTab, toolsTab);
+        nav.Margin = new Thickness(0, 10, 0, 8);
 
-        operations = MakeBarButton("操作");
-        operations.ToolTip = "窗口操作：旋转、字号和结束";
-        AutomationProperties.SetName(operations, "打开窗口操作菜单");
-        Grid.SetColumn(operations, 2);
-        actionRow.Children.Add(operations);
-        phoneSurface.Children.Add(actionRow);
-        var separator = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false };
-        separator.SetResourceReference(Border.BackgroundProperty, "Separator");
-        phoneSurface.Children.Add(separator);
-        outerRoot.Children.Add(phoneSurface);
-        Content = outerRoot;
+        var list = new StackPanel();
+        gestures = Button("单指手势", () => ToggleGesturesRequested?.Invoke());
+        list.Children.Add(gestures);
+        var help = Text("滑动浏览；长按后拖选文字，再轻点打开右键菜单。", 12, "Muted");
+        help.TextWrapping = TextWrapping.Wrap;
+        help.Margin = new Thickness(2, 5, 2, 9);
+        list.Children.Add(help);
+        scrollButtons = Button("滚动辅助键 ↑↓", () => ToggleScrollButtonsRequested?.Invoke());
+        list.Children.Add(scrollButtons);
+        rotate = Button("横竖屏切换", () => { Collapse(); rotation(); });
+        list.Children.Add(rotate);
+        minus = Button("字号 −", () => { Collapse(); zoom(-1); });
+        plus = Button("字号 ＋", () => { Collapse(); zoom(1); });
+        var sizing = Row(minus, plus);
+        sizing.Margin = new Thickness(0, 6, 0, 6);
+        list.Children.Add(sizing);
+        autoZoom = Button("进入应用时放大一级", () => ToggleAutoZoomRequested?.Invoke());
+        list.Children.Add(autoZoom);
+        list.Children.Add(Button("设备与设置", () => { Collapse(); settings(); }));
+        var end = Button("结束并还原", () => { Collapse(); finish(); });
+        end.SetResourceReference(Control.ForegroundProperty, "ErrorText");
+        list.Children.Add(end);
+        toolsScroll = new ScrollViewer { Content = list, PanningMode = PanningMode.VerticalOnly,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        poolScroll = new ScrollViewer { Content = pool, PanningMode = PanningMode.VerticalOnly,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
 
-        var menuContent = new StackPanel();
-        var heading = new TextBlock { Text = "窗口操作", FontSize = 16, FontWeight = FontWeights.SemiBold };
-        heading.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryText");
-        menuContent.Children.Add(heading);
-        menuNotice = new TextBlock
-        {
-            FontSize = 12,
-            Margin = new Thickness(0, 4, 0, 12),
-            TextWrapping = TextWrapping.NoWrap,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        menuNotice.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-        menuContent.Children.Add(menuNotice);
-
-        rotate = MakeMenuButton("横竖屏切换", rotation);
-        rotate.ToolTip = "横竖屏切换 · Ctrl + Alt + F11";
-        AutomationProperties.SetName(rotate, "旋转设备屏幕");
-        menuContent.Children.Add(rotate);
-
-        var zoomRow = new Grid { Margin = new Thickness(0, 8, 0, 8) };
-        zoomRow.ColumnDefinitions.Add(new ColumnDefinition());
-        zoomRow.ColumnDefinitions.Add(new ColumnDefinition());
-        minus = MakeMenuButton("A−  字号", () => zoom(-1));
-        plus = MakeMenuButton("A+  字号", () => zoom(1));
-        minus.Margin = new Thickness(0, 0, 4, 0);
-        plus.Margin = new Thickness(4, 0, 0, 0);
-        AutomationProperties.SetName(minus, "缩小应用字号");
-        AutomationProperties.SetName(plus, "放大应用字号");
-        Grid.SetColumn(plus, 1);
-        zoomRow.Children.Add(minus);
-        zoomRow.Children.Add(plus);
-        menuContent.Children.Add(zoomRow);
-
-        var done = MakeMenuButton("结束并还原", finish);
-        done.SetResourceReference(Control.ForegroundProperty, "ErrorText");
-        done.ToolTip = "结束工作台并还原窗口与显示设置";
-        AutomationProperties.SetName(done, "结束并还原");
-        menuContent.Children.Add(done);
-
-        var menuScroll = new ScrollViewer
-        {
-            Content = menuContent,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            PanningMode = PanningMode.VerticalOnly,
-            Focusable = false
-        };
-        menuRoot = new Border
-        {
-            Child = menuScroll,
-            Width = layout.PopupMaxWidth,
-            MaxHeight = layout.PopupMaxHeight,
-            Padding = new Thickness(12),
-            CornerRadius = new CornerRadius(16),
-            BorderThickness = new Thickness(1),
-            Focusable = true
-        };
-        menuRoot.SetResourceReference(Border.BackgroundProperty, "Card");
-        menuRoot.SetResourceReference(Border.BorderBrushProperty, "Outline");
-        AutomationProperties.SetName(menuRoot, "窗口操作菜单");
-        KeyboardNavigation.SetTabNavigation(menuRoot, KeyboardNavigationMode.Cycle);
-        KeyboardNavigation.SetDirectionalNavigation(menuRoot, KeyboardNavigationMode.Cycle);
-        menuRoot.PreviewKeyDown += (_, e) =>
-        {
-            if (e.Key != Key.Escape) return;
-            e.Handled = true;
-            CloseMenu();
-        };
-        menu = new Popup
-        {
-            Child = menuRoot,
-            PlacementTarget = outerRoot,
-            Placement = PlacementMode.Custom,
-            AllowsTransparency = true,
-            StaysOpen = false,
-            PopupAnimation = PopupAnimation.None,
-            CustomPopupPlacementCallback = PlaceMenu
-        };
-        menu.Opened += (_, _) =>
-        {
-            operations.SetResourceReference(Control.BackgroundProperty, "SoftBlue");
-            // Opening the menu is an explicit request for keyboard interaction.
-            // Initially focus its container so Enter cannot accidentally end work.
-            Keyboard.Focus(menuRoot);
-        };
-        menu.Closed += (_, _) =>
-        {
-            operations.SetResourceReference(Control.BackgroundProperty, "Card");
-            // No focus restoration here: an action may already have focused the
-            // target app, or the user may have clicked another application.
-        };
-        operations.Click += (_, _) => ToggleMenu();
-
-        SourceInitialized += (_, _) =>
-        {
+        WorkspaceScroll.EnableMousePan(poolScroll);
+        WorkspaceScroll.EnableMousePan(toolsScroll);
+        var body = new Grid();
+        body.Children.Add(poolScroll);
+        body.Children.Add(toolsScroll);
+        var inside = new DockPanel();
+        DockPanel.SetDock(header, Dock.Top);
+        DockPanel.SetDock(nav, Dock.Top);
+        inside.Children.Add(header);
+        inside.Children.Add(nav);
+        inside.Children.Add(body);
+        page = new Border { Padding = new Thickness(12), BorderThickness = new Thickness(1), Child = inside,
+            Visibility = Visibility.Collapsed };
+        page.SetResourceReference(Border.BackgroundProperty, "Card");
+        page.SetResourceReference(Border.BorderBrushProperty, "Outline");
+        surface.Children.Add(page);
+        Content = new Grid { ClipToBounds = true, Children = { surface } };
+        ShowTools(false);
+        SetGestureState(false, false);
+        SetScrollButtonsState(false, false);
+        SetAutoZoomState(false, false);
+        SetZoomEnabled(false);
+        KeyboardNavigation.SetTabNavigation(page, KeyboardNavigationMode.Cycle);
+        PreviewKeyDown += (_, e) => { if (IsExpanded && e.Key == Key.Escape) { e.Handled = true; Collapse(); } };
+        SourceInitialized += (_, _) => {
             source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
             source?.AddHook(HandleMessage);
+            ApplyPosition();
         };
-        IsVisibleChanged += (_, _) => { if (!IsVisible) CloseMenu(); };
-        SizeChanged += (_, _) => { if (menu.IsOpen) CloseMenu(); };
-        Closing += (_, e) =>
-        {
-            CloseMenu();
-            if (!exiting) { e.Cancel = true; library(); }
-        };
+        IsVisibleChanged += (_, _) => { if (!IsVisible) Collapse(); else ApplyPosition(); };
+        Loaded += (_, _) => ApplyPosition();
+        Closing += (_, e) => { if (!exiting) { e.Cancel = true; Collapse(); } };
         Closed += (_, _) => source?.RemoveHook(HandleMessage);
     }
 
-    private static Button MakeBarButton(string text)
+    private static TextBlock Text(string value, double size, string color, bool bold = false)
     {
-        var button = new Button
-        {
-            Content = text,
-            Height = 44,
-            MinHeight = 44,
-            MinWidth = 44,
-            Padding = new Thickness(10, 4, 10, 4),
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            Focusable = false,
-            IsTabStop = false
-        };
-        button.SetResourceReference(Control.ForegroundProperty, "PrimaryText");
-        button.SetResourceReference(Control.BackgroundProperty, "Card");
-        button.SetResourceReference(Control.BorderBrushProperty, "Outline");
-        return button;
+        var text = new TextBlock { Text = value, FontSize = size, TextTrimming = TextTrimming.CharacterEllipsis,
+            TextWrapping = TextWrapping.NoWrap, FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal };
+        text.SetResourceReference(TextBlock.ForegroundProperty, color);
+        return text;
     }
-
-    private Button MakeMenuButton(string text, Action action)
+    private static Button Button(string value, Action action)
     {
-        var button = new Button
-        {
-            Content = text,
-            MinHeight = 44,
-            MinWidth = 44,
-            Padding = new Thickness(8, 8, 8, 8),
-            FontSize = 14,
-            HorizontalContentAlignment = HorizontalAlignment.Center
-        };
+        var button = new Button { Content = value, Padding = new Thickness(8, 4, 8, 4), MinHeight = 44 };
         button.SetResourceReference(Control.ForegroundProperty, "PrimaryText");
         button.SetResourceReference(Control.BackgroundProperty, "Fill");
         button.SetResourceReference(Control.BorderBrushProperty, "Outline");
-        // Popup dismissal happens before a zoom callback calls WindowService.Focus.
-        button.Click += (_, _) => { CloseMenu(); action(); };
+        AutomationProperties.SetName(button, value);
+        button.Click += (_, _) => action();
         return button;
     }
-
+    private static Grid Row(params Button[] buttons)
+    {
+        var grid = new Grid();
+        for (int i = 0; i < buttons.Length; i++) {
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+            Grid.SetColumn(buttons[i], i);
+            buttons[i].Margin = new Thickness(i == 0 ? 0 : 3, 0, i == buttons.Length - 1 ? 0 : 3, 0);
+            grid.Children.Add(buttons[i]);
+        }
+        return grid;
+    }
+    private void ShowTools(bool open)
+    {
+        poolScroll.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+        toolsScroll.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var (tab, selected) in new[] { (poolTab, !open), (toolsTab, open) }) {
+            tab.SetResourceReference(Control.BackgroundProperty, selected ? "SoftBlue" : "Fill");
+            tab.SetResourceReference(Control.ForegroundProperty, selected ? "Accent" : "PrimaryText");
+            tab.FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal;
+        }
+    }
     private nint HandleMessage(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
     {
-        if (message == 0x0021 && !menu.IsOpen) // WM_MOUSEACTIVATE
-        {
-            handled = true;
-            return 3; // MA_NOACTIVATE: still deliver the click to its button.
-        }
+        if (message == 0x0021 && !IsExpanded) { handled = true; return 3; } // MA_NOACTIVATE on strip only.
         return 0;
     }
-
-    private void ToggleMenu()
+    public void ConfigurePlacement(ToolbarPlacement next, double contentScale)
     {
-        if (menu.IsOpen) { CloseMenu(); return; }
-        if (!IsVisible || layout.PopupMaxHeight < 44 || layout.PopupMaxWidth < 128) return;
-        Activate(); // Only the user's explicit menu entry may activate this strip.
-        menu.IsOpen = true;
+        if (!double.IsFinite(contentScale) || contentScale <= 0) throw new ArgumentOutOfRangeException(nameof(contentScale));
+        ArgumentNullException.ThrowIfNull(next);
+        if (surface.LayoutTransform.Value.M11 != contentScale)
+            surface.LayoutTransform = contentScale == 1 ? Transform.Identity : new ScaleTransform(contentScale, contentScale);
+        placement = next;
+        label.Text = next.Edge == DockEdge.Bottom ? "⌃   PocketDesk" : "PocketDesk";
+        label.LayoutTransform = next.Edge == DockEdge.Bottom ? Transform.Identity : new RotateTransform(next.Edge == DockEdge.Left ? -90 : 90);
+        ApplyPosition();
     }
-
-    private CustomPopupPlacement[] PlaceMenu(Size popupSize, Size targetSize, Point offset)
+    private void ApplyPosition()
     {
-        // WPF invokes custom placement in device pixels, after transforming both
-        // target and popup bounds. TranslatePoint includes our content scale but
-        // returns DIPs, so its center and the logical margin still need DPI.
-        var dpi = VisualTreeHelper.GetDpi(outerRoot);
-        var center = operations.TranslatePoint(new Point(operations.ActualWidth / 2, 0), outerRoot).X * dpi.DpiScaleX;
-        var rightLimit = Math.Max(0, targetSize.Width - popupSize.Width);
-        var edge = Math.Min(8 * contentScale * dpi.DpiScaleX, rightLimit / 2);
-        var x = Math.Clamp(center - popupSize.Width / 2, edge, rightLimit - edge);
-        // Reserve the same 8 logical pixels used by ToolbarLayout's 16-pixel
-        // vertical allowance; an unscaled gap would overrun very small scales.
-        return [new CustomPopupPlacement(new Point(x, -popupSize.Height - 8 * contentScale * dpi.DpiScaleY), PopupPrimaryAxis.Horizontal)];
+        if (placement is { } p && source is not null) OwnWindow.SetBounds(this, IsExpanded ? p.Panel : p.Bar);
     }
-
-    private void CloseMenu() => menu.IsOpen = false;
-
-    public void ConfigureLayout(double logicalWidth, double logicalHeight)
+    public void SetPoolContent(FrameworkElement content) => pool.Content = content;
+    public void Expand() => OpenPanel(false);
+    public void ShowRunningWindows() => OpenPanel(true);
+    private void OpenPanel(bool focusWindows)
     {
-        var measured = ToolbarLayout.Measure(logicalWidth, logicalHeight);
-        if (measured != layout) CloseMenu();
-        layout = measured;
-        phoneSurface.Height = layout.Height;
-        actionRow.Width = layout.ContentMaxWidth;
-        Height = layout.Height * contentScale;
-        menuRoot.Width = layout.PopupMaxWidth;
-        menuRoot.MaxHeight = layout.PopupMaxHeight;
-        operations.IsEnabled = layout.PopupMaxHeight >= 44 && layout.PopupMaxWidth >= 128;
+        if (placement is null) return;
+        if (IsExpanded && !focusWindows) return;
+        bool opening = !IsExpanded;
+        IsExpanded = true;
+        handle.Visibility = Visibility.Collapsed;
+        page.Visibility = Visibility.Visible;
+        ShowTools(false);
+        poolScroll.ScrollToHome();
+        if (pool.Content is AppPoolPanel apps) apps.OpenLibrary(focusWindows);
+        if (opening) ExpansionChanged?.Invoke(true);
+        ApplyPosition();
+        if (IsVisible) { Activate(); shrink.Focus(); }
     }
-
-    public void SetContentScale(double scale)
+    public void Collapse()
     {
-        if (!double.IsFinite(scale) || scale <= 0) throw new ArgumentOutOfRangeException(nameof(scale));
-        if (Math.Abs(scale - contentScale) >= 0.001) CloseMenu();
-        contentScale = scale;
-        phoneSurface.LayoutTransform = Math.Abs(scale - 1) < 0.001 ? Transform.Identity : new ScaleTransform(scale, scale);
-        menuRoot.LayoutTransform = Math.Abs(scale - 1) < 0.001 ? Transform.Identity : new ScaleTransform(scale, scale);
-        Height = layout.Height * scale;
+        if (!IsExpanded) return;
+        IsExpanded = false;
+        page.Visibility = Visibility.Collapsed;
+        handle.Visibility = Visibility.Visible;
+        if (IsVisible) ApplyPosition();
+        ExpansionChanged?.Invoke(false);
     }
-
-    public void SetZoomEnabled(bool enabled)
-    {
-        plus.IsEnabled = minus.IsEnabled = enabled;
-        plus.ToolTip = minus.ToolTip = enabled ? "发送应用默认字号快捷键；自定义绑定可能不同" : "此应用尚未适配字号快捷键";
-    }
-
+    public void SetZoomEnabled(bool enabled) => plus.IsEnabled = minus.IsEnabled = enabled;
     public void SetRotationEnabled(bool enabled) => rotate.IsEnabled = enabled;
-    public void SetNotice(string text)
+    public void SetAutoZoomState(bool enabled, bool available) => SetToggle(autoZoom, "进入应用时放大一级", enabled, available);
+    public void SetScrollButtonsState(bool enabled, bool available) => SetToggle(scrollButtons, "滚动辅助键 ↑↓", enabled, available);
+    private static void SetToggle(Button button, string caption, bool enabled, bool available)
     {
-        notice.Text = menuNotice.Text = text;
-        notice.ToolTip = menuNotice.ToolTip = text;
+        button.IsEnabled = available;
+        button.Content = $"{caption}：{(enabled ? "已开启" : "已关闭")}";
+        AutomationProperties.SetName(button, (string)button.Content);
     }
-
-    public void CloseForExit() { exiting = true; CloseMenu(); Close(); }
+    public void SetGestureState(bool enabled, bool available)
+    {
+        gestures.IsEnabled = available;
+        gestures.Content = available ? $"单指手势：{(enabled ? "已开启" : "已关闭")}" : "单指手势：需手机或平板接入";
+        AutomationProperties.SetName(gestures, (string)gestures.Content);
+    }
+    public void SetNotice(string text) { notice.Text = text; notice.ToolTip = text; }
+    public void CloseForExit() { exiting = true; Close(); }
 }

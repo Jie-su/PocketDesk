@@ -21,6 +21,12 @@ public sealed class DevicePreferenceStore
     public PhoneProfile Apply(PhoneProfile profile) => portrait.TryGetValue(Key(profile), out var value)
         ? profile with { PortraitOnConnect = value } : profile;
     public bool AutoFollow => !portrait.TryGetValue("auto-follow", out var enabled) || enabled;
+    public bool MobileGestures => !portrait.TryGetValue("mobile-gestures", out var enabled) || enabled;
+    public void SaveMobileGestures(bool enabled) => SaveEntry("mobile-gestures", enabled);
+    public bool ScrollButtons => portrait.GetValueOrDefault("scroll-buttons");
+    public void SaveScrollButtons(bool enabled) => SaveEntry("scroll-buttons", enabled);
+    public bool AutoZoom => !portrait.TryGetValue("auto-zoom", out var enabled) || enabled;
+    public void SaveAutoZoom(bool enabled) => SaveEntry("auto-zoom", enabled);
     public void SaveAutoFollow(bool enabled) => SaveEntry("auto-follow", enabled);
     public void Save(PhoneProfile profile) => SaveEntry(Key(profile), profile.PortraitOnConnect);
     private void SaveEntry(string key, bool value)

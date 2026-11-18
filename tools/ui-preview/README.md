@@ -50,20 +50,25 @@ proportional content scaling. This is also an offscreen layout fixture, not a
 display switch or validation that the current driver accepts those modes.
 The earlier 715×375 / 1920×1080 images in `frame-supported` are historical;
 `frame-swapped` contains the current exact-swap fixture. Combining `--toolbar`
-with this preset renders its real toolbar and unopened operations menu as well.
+with this preset renders the collapsed strip and both views of the expanded panel.
 
-`--toolbar` constructs the real `ToolbarWindow` with inert callbacks, then renders
-its content and its unopened Popup child. It never calls `Show`, opens the popup
-or creates a toolbar HWND; it asserts that no source initialization or action
-callback occurred. `toolbar-report.json` records button bounds, their 44-point
-minimum size and viewport containment. Popup event handling, focus and actual
-placement above the strip still require interactive verification.
+`--toolbar` constructs the real `ToolbarWindow` and combined app/window panel
+with temporary pins and two synthetic window records. It selects a window after
+the source order changes, then repeats the click after the selected window is
+removed. It checks that only the still-valid row invoked the fixture callback,
+that the panel stayed open and that no HWND or application process was created.
+It also renders the handle, library and Operations views.
+`toolbar-report.json` records button bounds, 44-point action targets and viewport
+containment. The collapsed 32-point strip intentionally spans the entire edge.
+Native focus, launch behavior and placement on a UU screen need a live desktop.
 `--show-toolbar` is the explicit interactive exception: it shows only the real
 toolbar fixture, with all product action callbacks replaced by console logging.
 It never constructs the product main window, controller/native services, session
 or recovery. The fixture closes automatically after 180 seconds (configurable
 with `--seconds 10–600`). This mode is intended for a human/CUA to test the actual
-popup, Escape dismissal and return button; rendering commands never enable it.
+panel expansion, Escape dismissal and the Operations tab; rendering commands never enable it.
+Add `--verify-toolbar` to that interactive fixture to check the actual native
+window bounds in its collapsed, expanded and collapsed-again states and exit.
 
 The tool calls the product's pure `WorkspaceLayout.Apply` helper and reads the
 product theme palette without constructing its persistent theme service. These

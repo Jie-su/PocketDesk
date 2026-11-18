@@ -32,6 +32,9 @@ internal static partial class Program
         {
             Console.WriteLine("PocketDesk pure layout tests — no windows or display modes are changed.");
             TestToolbarLayout();
+            TestMobileGesturePolicy();
+            TestMobileAutoZoom();
+            TestAppPool();
             TestPhoneViewportPolicy();
             return Finish();
         }
@@ -70,6 +73,10 @@ internal static partial class Program
         TestDeviceModePolicy();
         TestDeviceRecoveryOwnership();
         TestToolbarLayout();
+        TestMobileGesturePolicy();
+        TestMobileAutoZoom();
+        TestAppPool();
+        TestGestureMessageFixture();
         TestPhoneViewportPolicy();
         TestControllerHandoverPolicy();
         TestControllerDisconnectPolicy();
@@ -128,6 +135,19 @@ internal static partial class Program
                 {
                     if (Windows.IsSameWindow(normal)) Require(Windows.Restore(normal), "Could not reset fixture between tests.");
                 };
+            });
+
+            Test("A foreground app can receive gestures without being taken; other monitors and physical sessions do not qualify", () =>
+            {
+                Require(Windows.Focus(hwnd), "Fixture did not become foreground.");
+                var before = Windows.Capture(hwnd);
+                var mobile = primary with { AdapterDeviceId = @"Root\GameViewerIddDriver\fixture", AdapterName = "GameViewer" };
+                var followed = Windows.ForegroundOn(mobile, null);
+                Require(followed?.Handle == hwnd, "Directly opened fixture was not recognized.");
+                Require(Windows.ForegroundOn(mobile with { AdapterDeviceId = "" }, followed) is null, "Observed a non-UU session.");
+                var elsewhere = mobile with { Bounds = mobile.Bounds with { X = mobile.Bounds.X + mobile.Bounds.Width } };
+                Require(Windows.ForegroundOn(elsewhere, followed) is null, "Cached identity escaped the selected monitor.");
+                Require(Windows.Capture(hwnd).CurrentBounds == before.CurrentBounds, "Observation moved the fixture.");
             });
 
             Test("Move, resize and restore a normal window", () =>
@@ -551,6 +571,12 @@ internal static partial class Program
         header.Children.Add(buttons);
         layout.Children.Add(header);
         var reading = new StackPanel();
+        reading.Children.Add(new TextBox
+        {
+            Text = "复制这段测试文字：长按半秒，拖到终点后松手，再轻点一次打开右键菜单。",
+            FontSize = 18, TextWrapping = TextWrapping.Wrap, IsReadOnly = true, Padding = new Thickness(8),
+            Margin = new Thickness(0, 0, 0, 12)
+        });
         reading.Children.Add(new TextBlock { Text = "往下滚动，检查竖屏阅读", FontSize = 20,
             Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 14),
             TextWrapping = TextWrapping.Wrap });
@@ -559,7 +585,7 @@ internal static partial class Program
             "这是专门用于测试的窗口，没有真实用户数据。点击上面的绿色按钮，计数应每次增加一；点击“清零”，计数应立即回到零。",
             "把手机竖起来时，文字应跟随窗口宽度自动换行，不需要左右来回拖动。窗口底部应保留手机工作台的返回按钮。",
             "再把手机横过来，观察窗口尺寸是否跟随变化，以及内容是否仍然清楚、完整。旋转屏幕后可以继续点按按钮，检查手指点下的位置是否准确。",
-            "这段内容用于检查滚动体验。请使用 UU 远程当前提供的滚动方式往下阅读；伴侣暂时不会改变你的触控手势。",
+            "这段内容用于检查滚动体验。打开 PocketDesk 单指手势后，快速上下滑动应该能滚动页面。",
             "从工作台返回应用列表，再次选择这个窗口。计数应该仍然保留，窗口会重新铺满当前工作区。",
             "测试结束后，点击工作台的结束按钮，查看此窗口是否回到开始测试时的位置和大小。你也可以直接关闭本测试窗口。",
             "你已经到达测试文章的末尾。这里没有链接、账号或提交操作，所有点按计数只保存在当前测试窗口里。"

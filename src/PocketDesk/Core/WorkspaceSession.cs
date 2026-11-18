@@ -7,6 +7,7 @@ namespace PocketDesk.Core;
 public sealed class WorkspaceSession
 {
     private readonly RecoveryStore store;
+    private readonly MobileAutoZoomPolicy mobileAutoZoom = new();
     private RecoveryState state;
     private bool guardStarted;
     public WindowService Windows { get; } = new();
@@ -34,7 +35,7 @@ public sealed class WorkspaceSession
 
     public PixelRect Take(WindowEntry entry, PixelRect area)
     {
-        if (Active?.Handle != entry.Handle && Active is not null) RestoreActive();
+        if (Active is { } old && (old.Handle != entry.Handle || !Windows.IsSameWindow(old))) RestoreActive();
         var captured = Windows.Capture(entry.Handle);
         if (captured.ProcessId != entry.ProcessId) throw new InvalidOperationException("窗口已变化，请刷新应用列表后重试。");
         var original = state.Windows.FirstOrDefault(w => w.Handle == entry.Handle && Windows.IsSameWindow(w));
@@ -58,16 +59,33 @@ public sealed class WorkspaceSession
         if (!HasDisplayChange) state.Windows.RemoveAll(w => w.Handle == Active.Handle);
         else Replace(Active with { ZoomSteps = 0 });
         Active = null;
+        mobileAutoZoom.Reset();
         store.Save(state);
     }
 
     public void AdjustZoom(int delta)
     {
+        ChangeZoom(delta, mayFocus: true);
+        mobileAutoZoom.NoteManualChange(delta);
+    }
+
+    /// <summary>Call only after opening an explicitly selected mobile workspace window
+    /// or explicitly toggling its reading preference. Never activates a background app.</summary>
+    public int ApplyMobileAutoZoom(bool enabled)
+    {
+        if (Active is not { ZoomUncertain: false } target ||
+            !Windows.IsForeground(target) || !Windows.CanZoom(target)) return 0;
+        return mobileAutoZoom.Apply(enabled, target.ZoomSteps, delta => ChangeZoom(delta, mayFocus: false));
+    }
+
+    private void ChangeZoom(int delta, bool mayFocus)
+    {
         if (Active is null || !Windows.IsSameWindow(Active)) throw new InvalidOperationException("窗口已关闭，请返回应用列表。");
         if (Active.ZoomUncertain) throw new InvalidOperationException("上次字号发送结果不确定，请先在应用中手动恢复字号。");
         if (!Windows.CanZoom(Active)) throw new InvalidOperationException("此应用尚未适配字号快捷键，请在应用内调整。");
         if (Math.Abs(Active.ZoomSteps + delta) > 8) throw new InvalidOperationException("本次字号调整最多 8 级。");
-        if (!Windows.Focus(Active.Handle)) throw new InvalidOperationException("无法激活目标窗口，未发送字号快捷键。");
+        if (mayFocus ? !Windows.Focus(Active.Handle) : !Windows.IsForeground(Active))
+            throw new InvalidOperationException("目标窗口不在前台，未发送字号快捷键。");
         var before = Active;
         Active = before with { ZoomSteps = before.ZoomSteps + delta, ZoomUncertain = true };
         Replace(Active);
@@ -363,6 +381,7 @@ public sealed class WorkspaceSession
             catch (Exception ex) { errors.Add("窗口：" + ex.Message); }
         }
         Active = null;
+        mobileAutoZoom.Reset();
         store.Save(state);
         return errors;
     }
@@ -466,7 +485,11 @@ public sealed class WorkspaceSession
         {
             var cleared = item with { ZoomSteps = 0, ZoomUncertain = false };
             Replace(cleared);
-            if (Active?.Handle == item.Handle) Active = cleared;
+            if (Active?.Handle == item.Handle)
+            {
+                Active = cleared;
+                mobileAutoZoom.NoteManuallyRestored();
+            }
         }
         store.Save(state);
     }

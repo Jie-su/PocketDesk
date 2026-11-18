@@ -10,10 +10,10 @@
 
 配合 UU 远程超级屏 · 应用窗口库 · 横竖屏切换 · 会话还原
 
-[![预发布](https://img.shields.io/badge/version-v0.1.1--pre--release-orange)](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.1)
+[![预发布](https://img.shields.io/badge/version-v0.2.1--pre--release-orange)](https://github.com/Jie-su/PocketDesk/releases/tag/v0.2.1)
 ![Windows 11 x64](https://img.shields.io/badge/Windows-11%20x64-blue)
 ![WPF](https://img.shields.io/badge/.NET-10%20%7C%20WPF-512BD4)
-[![Tests](https://img.shields.io/badge/tests-199%20passed-brightgreen)](TESTING.md)
+[![Tests](https://img.shields.io/badge/tests-211%20passed-brightgreen)](TESTING.md)
 [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 [下载](#下载) · [功能](#功能) · [安装](#安装) · [使用](#使用) · [限制](#已知限制) · [开发](#开发)
@@ -24,7 +24,7 @@ PocketDesk 是受 [Snug](https://github.com/zephyr4123/snug) 启发的独立 Win
 
 ## 下载
 
-**[下载 v0.1.1 预发布版](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.1)** · [全部版本](https://github.com/Jie-su/PocketDesk/releases)
+**[下载 v0.2.1 预发布版](https://github.com/Jie-su/PocketDesk/releases/tag/v0.2.1)** · [全部版本](https://github.com/Jie-su/PocketDesk/releases)
 
 推荐 **Windows 11 x64**；其他受 .NET 10 支持的 Windows 版本尚未全面验证，参见 [Microsoft 兼容表](https://learn.microsoft.com/en-us/dotnet/core/install/windows)。自包含压缩包无需另装 .NET；解压整个发行目录后运行 `PocketDesk.exe`。此版本为未签名预发布，不提供自动更新；更新方式见[使用指南](docs/user-guide.md)。
 
@@ -36,14 +36,15 @@ PocketDesk 是受 [Snug](https://github.com/zephyr4123/snug) 启发的独立 Win
 
 ## 功能
 
+- **0.2.1 新功能**：小栏里的「应用与窗口」可以启动常用程序、切换已有窗口。支持单指滑动、长按拖选、选区右键和点按滚动辅助键。从面板进入支持的窗口可自动放大一级。详见[操作步骤](docs/user-guide.md)。
 - **真实窗口库**：按运行中的应用分组，显示图标和窗口标题；搜索后直接选中窗口进入工作区。切换应用时还原上一个窗口的位置。
 - **手机 / 平板适配**：从 UU「本机被控中」读取当前控制者，支持已登记的 iPhone 17 Pro 和 iPad Pro 11 英寸（第 3 代）；自动适配开关与设备偏好可保存。
 - **整帧尺寸调整**：调整 UU 显示模式，让 Windows 任务栏与窗口一起参与画面适配。理想模式不被驱动接受时，仅选择符合安全留边条件的枚举模式。
 - **严格宽高互换**：手动旋转只使用驱动列出的精确交换尺寸。例如已验证的 **1200×1920 ↔ 1920×1200**；没有对应模式或未通过检查则保持现状，不改用另一比例。
-- **触控尺寸的界面**：宽屏侧栏、窄屏底部导航、单 / 双 / 三列应用卡片，以及轻量「应用 / 操作」控制条。
+- **触控尺寸的界面**：宽屏侧栏、窄屏底部导航、单 / 双 / 三列应用卡片，以及轻量「应用与窗口 / 操作」控制条。
 - **浅色 / 深色 / 系统主题**：主窗和控制条同步更新，选择在重启后保留。
 - **记录后再修改**：保存原始显示模式、窗口位置及状态。支持正常结束、重启重试和独立恢复助手；恢复无法确认时保留记录。
-- **受限字号操作**：Terminal、VS Code、Cursor 使用应用白名单与前台检查；不确定的操作会保留记录，避免盲目反向调整。
+- **受限字号操作**：Windows Terminal、VS Code、Cursor 和官方商店版 ChatGPT 使用应用白名单与前台检查；不确定的操作会保留记录，避免盲目反向调整。
 
 ### 设备支持
 
@@ -67,7 +68,7 @@ PocketDesk 只读取 UU 可访问性界面，不主动激活或恢复 UU 窗口�
 
 1. **进入工作台**：已支持的单个设备连接后自动适配；也可在设备页手动选择目标屏。
 2. **打开窗口**：在应用页搜索并点击窗口行，窗口会放到工作区。
-3. **切换应用**：点控制条「应用」回到窗口库；「操作」中可旋转、调整受支持应用的字号或结束。
+3. **切换应用**：展开小栏，在「应用与窗口」中点选窗口；「操作」中可旋转、调整受支持应用的字号或结束。
 4. **横竖切换**：点旋转按钮，或按 `Ctrl + Alt + F11`。`Ctrl + Alt + F12` 返回工作台。
 5. **结束并还原**：先结束工作台，再退出 UU 超级屏。手动结束会抑制本次连接自动重开。
 
@@ -75,12 +76,12 @@ PocketDesk 只读取 UU 可访问性界面，不主动激活或恢复 UU 窗口�
 
 ## 已知限制
 
-- **依赖 UU**：超级屏、视频传输和触控输入由 UU 提供。没有单指滚动 / 长按右键重映射，也没有手机方向传感器通道；旋转需手动触发。
+- **依赖 UU**：超级屏、视频传输和输入由 UU 提供。单指滑动要求 Windows 收到连续拖动，且目标应用支持对应的窗口消息；没有手机方向传感器通道，旋转仍需手动触发。
 - **驱动与应用差异**：分辨率必须通过预检和读回。最小窗口尺寸、管理员窗口、安全桌面、独占全屏及其他虚拟桌面不在首版保证范围。
 - **只读识别可能暂时不可用**：UU 更新或面板不可读时会返回 Unknown。虚拟屏仍连接时，不能仅凭 Unknown 推断远程已结束；请手动「结束并还原」。
 - **恢复需要证据**：标准备用模式可能与 PC 相同，自动恢复在控制者证据不足时保留完整记录等待重试，不冒险覆盖接管者的分辨率。不保证恢复 UU 管理的物理屏启用状态或拓扑。
 - **短横屏需要滚动**：约 643×378 逻辑尺寸的应用页首个窗口操作行可能位于首屏下面，可以滚动访问。
-- **验证范围**：199 项本地回归通过。iPhone 17 Pro 直接断开 UU 后重连，已实测可再次自动竖屏。第三方应用窗口能否逐一恢复到原位仍需验证，延迟也未量化。完整范围见 [TESTING.md](TESTING.md)。
+- **验证范围**：211 项本地回归通过。iPhone 17 Pro 经 UU 进入 Windows 版 ChatGPT 后，已实测可单指滚动聊天正文，界面也会自动放大。第三方应用窗口能否逐一恢复到原位仍需验证，延迟也未量化。完整范围见 [TESTING.md](TESTING.md)。
 
 ## 开发
 

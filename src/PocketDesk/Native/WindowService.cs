@@ -63,6 +63,33 @@ public sealed class WindowService
             .ThenBy(x => x.Title, StringComparer.CurrentCultureIgnoreCase).ToArray();
     }
 
+    /// <summary>Observe an ordinary foreground app on this virtual monitor. Does not
+    /// activate it or enlist it in workspace restoration. Popups and shell surfaces
+    /// remain entirely under the application's/Windows' own input handling.</summary>
+    public WindowSnapshot? ForegroundOn(DisplayInfo display, WindowSnapshot? cached)
+    {
+        if (!display.IsUuVirtual) return null;
+        using var dpi = new DpiScope();
+        try
+        {
+            var h = Native.GetForegroundWindow();
+            if (h == 0 || !Native.IsWindowVisible(h) || Native.IsIconic(h) || Native.GetWindow(h, 4) != 0 ||
+                h == Native.GetDesktopWindow() || h == Native.GetShellWindow() || IsCloaked(h) ||
+                (GetExStyle(h) & WsExToolWindow) != 0) return null;
+            var monitor = Native.MonitorFromWindow(h, 0);
+            if (monitor == 0 || ToPixelRect(ReadMonitor(monitor).Monitor) != display.Bounds) return null;
+            Native.GetWindowThreadProcessId(h, out var pid);
+            if (pid == 0 || pid == Environment.ProcessId) return null;
+            if (cached?.Handle == h.ToInt64() && IsSameWindow(cached)) return cached;
+            if (Native.GetWindowTextLength(h) <= 0 || GetClass(h) is "#32768" or "#32770" or "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
+                return null;
+            var target = Capture(h.ToInt64());
+            return !ExcludedProcesses.Contains(target.ProcessName) && !target.ProcessName.StartsWith("UURemote", StringComparison.OrdinalIgnoreCase)
+                && Native.GetForegroundWindow() == h ? target : null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception) { return null; }
+    }
+
     public WindowSnapshot Capture(long handle)
     {
         LastError = null;
@@ -322,6 +349,9 @@ public sealed class WindowService
             || Fail("Windows 未允许切换前台窗口，请先点选目标窗口。");
     }
 
+    public bool IsForeground(WindowSnapshot snapshot) =>
+        Native.GetForegroundWindow() == (nint)snapshot.Handle && IsSameWindow(snapshot);
+
     public bool CanZoom(WindowSnapshot snapshot)
     {
         try
@@ -332,7 +362,8 @@ public sealed class WindowService
             var name = process.ProcessName;
             return name.Equals("Code", StringComparison.OrdinalIgnoreCase)
                 || name.Equals("Cursor", StringComparison.OrdinalIgnoreCase)
-                || name.Equals("WindowsTerminal", StringComparison.OrdinalIgnoreCase);
+                || name.Equals("WindowsTerminal", StringComparison.OrdinalIgnoreCase)
+                || ChatGptPackage.SupportsZoom(process);
         }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException or Win32Exception)
         {
@@ -526,6 +557,7 @@ public sealed class WindowService
 
     private static class Native
     {
+        [DllImport("user32.dll")] internal static extern IntPtr GetWindow(IntPtr window, uint which);
         internal delegate bool EnumWindowCallback(IntPtr window, IntPtr parameter);
         [DllImport("user32.dll")] internal static extern bool EnumWindows(EnumWindowCallback callback, IntPtr parameter);
         [DllImport("user32.dll")] internal static extern bool IsWindow(IntPtr window);

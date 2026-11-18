@@ -12,7 +12,11 @@
   </ItemGroup>
   <ItemGroup Condition="'$(NativeOnly)' == 'true'">
     <Compile Include="../../src/PocketDesk/Native/*.cs" Link="Native/%(Filename)%(Extension)" />
+    <Compile Include="../../src/PocketDesk/MobileGestureLayer.cs" Link="MobileGestureLayer.cs" />
+    <Compile Include="../../src/PocketDesk/Core/MobileGesturePolicy.cs" Link="Core/MobileGesturePolicy.cs" />
+    <Compile Include="../../src/PocketDesk/Core/MobileAutoZoomPolicy.cs" Link="Core/MobileAutoZoomPolicy.cs" />
     <Compile Include="../../src/PocketDesk/Core/RecoveryStore.cs" Link="Core/RecoveryStore.cs" />
+    <Compile Include="../../src/PocketDesk/Core/AppPoolStore.cs" Link="Core/AppPoolStore.cs" />
     <Compile Include="../../src/PocketDesk/Core/WorkspaceSession.cs" Link="Core/WorkspaceSession.cs" />
     <Compile Include="../../src/PocketDesk/Core/AutoWorkspacePolicy.cs" Link="Core/AutoWorkspacePolicy.cs" />
     <Compile Include="../../src/PocketDesk/Core/PortraitModePolicy.cs" Link="Core/PortraitModePolicy.cs" />

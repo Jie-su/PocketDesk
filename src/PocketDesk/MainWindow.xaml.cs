@@ -58,6 +58,7 @@ public partial class MainWindow : Window
         legacyProfile = profileStore.Load();
         phoneProfile = devicePreferences.Apply(legacyProfile);
         InitializeComponent();
+        WorkspaceScroll.EnableMousePan(LibraryScroll);
         AutoFollowBox.IsChecked = devicePreferences.AutoFollow;
         themeService = new ThemeService(Application.Current);
         themeService.ThemeChanged += (_, _) => RefreshThemeButtons();
@@ -106,7 +107,7 @@ public partial class MainWindow : Window
             if (IsVisible) RefreshWindows();
             if (session.Active is { } active && !session.Windows.IsSameWindow(active))
             {
-                Run(() => { session.RestoreActive(); ShowLibrary(); SetStatus("窗口已关闭。窗口关闭后保存到应用内的字号，请在该应用中自行检查。"); });
+                Run(ReturnAfterAppClosed);
             }
         };
         previewTimer.Tick += (_, _) =>
@@ -134,13 +135,14 @@ public partial class MainWindow : Window
             OwnWindow.UnregisterHotKey(new WindowInteropHelper(this).Handle, 1);
             OwnWindow.UnregisterHotKey(new WindowInteropHelper(this).Handle, 2);
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+            gestureLayer?.Dispose();
             toolbar?.CloseForExit();
         };
     }
 
     private nint HandleMessage(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
     {
-        if (msg == 0x0312 && wParam == 1) { Run(ShowLibrary); handled = true; }
+        if (msg == 0x0312 && wParam == 1) { Run(ShowMobileWindows); handled = true; }
         if (msg == 0x0312 && wParam == 2) { Run(RotatePhoneScreen); handled = true; }
         return 0;
     }
@@ -209,7 +211,7 @@ public partial class MainWindow : Window
     {
         if (previewTimer.IsEnabled) throw new InvalidOperationException("请先保留或回退分辨率。");
         if (session.Active is not null) { ShowActive(); return; }
-        if (working) { FinishWorkspace(); return; }
+        if (working) { ShowDock(); return; }
         EnterWorkspace();
     });
     private void EnterWorkspace(bool automatically = false)
@@ -218,9 +220,10 @@ public partial class MainWindow : Window
         working = true;
         automaticWorkspace = automatically;
         SettingsExpander.IsExpanded = false;
-        FitLibrary();
-        WorkspaceButton.Content = "返回桌面";
-        SetStatus("点击一个窗口即可铺满；底部控制条可随时返回。");
+        WorkspaceButton.Content = "收起工作台";
+        if (automatically) ShowDock();
+        else FitLibrary();
+        SetStatus("选择窗口进入工作区，或收起到 PocketDesk 小栏。");
     }
     private void FitLibrary()
     {
@@ -264,11 +267,7 @@ public partial class MainWindow : Window
     }
     private PixelRect AppArea(DisplayInfo display)
     {
-        var area = DeviceViewport(display);
-        double scale = display.Scale * ContentScale(display);
-        var layout = ToolbarLayout.Measure(area.Width / scale, area.Height / scale);
-        int height = Math.Clamp((int)Math.Round(layout.Height * scale), 1, Math.Max(1, area.Height - 100));
-        return new(area.X, area.Y, area.Width, Math.Max(100, area.Height - height));
+        return DockPlacement(display).App;
     }
     // UU overlays must sit outside the streamed frame. Reserve their space in
     // the display mode itself; a window inset cannot move Explorer's taskbar.
@@ -325,53 +324,47 @@ public partial class MainWindow : Window
     private void OpenWindowClicked(object sender, RoutedEventArgs e) => Run(() =>
     {
         if (previewTimer.IsEnabled) throw new InvalidOperationException("请先保留或回退分辨率。");
-        if ((sender as Button)?.Tag is not WindowEntry entry || Target is not { } display) return;
+        if ((sender as Button)?.Tag is WindowEntry entry) OpenEntry(entry);
+    });
+    private void OpenEntry(WindowEntry entry)
+    {
+        if (Target is not { } display) return;
+        InvalidatePoolLaunch();
+        gestureLayer?.Suspend();
         if (!working) EnterWorkspace();
         var area = AppArea(display);
         var actual = session.Take(entry, area);
         bool fits = actual.Width <= area.Width + 3 && actual.Height <= area.Height + 3;
         ShowActive();
         toolbar?.SetNotice(fits ? entry.ProcessName : "窗口有最小尺寸，请返回调整分辨率");
-    });
+        ApplyMobileReadingSize();
+    }
     private void ShowActive()
     {
         if (session.Active is not { } active || Target is not { } display) return;
         if (!session.Windows.IsSameWindow(active)) throw new InvalidOperationException("窗口已经关闭，请刷新列表。");
-        if (toolbar is null)
-        {
-        toolbar = new ToolbarWindow(ShowLibrary, delta => Run(() =>
-        {
-            session.AdjustZoom(delta);
-            toolbar?.SetNotice($"本次字号调整 {session.Active?.ZoomSteps:+0;-0;0} 级");
-        }), () => Run(FinishWorkspace), () => Run(RotatePhoneScreen));
-        toolbar.DpiChanged += (_, _) => ScheduleDisplayRefresh();
-        }
+        gestureLayer?.Suspend();
         var area = AppArea(display);
-        var viewport = DeviceViewport(display);
         session.Windows.Place(active.Handle, area);
-        toolbar.SetContentScale(ContentScale(display));
-        double scale = display.Scale * ContentScale(display);
-        toolbar.ConfigureLayout(viewport.Width / scale, viewport.Height / scale);
-        toolbar.SetZoomEnabled(session.Windows.CanZoom(active));
-        toolbar.SetRotationEnabled(!previewTimer.IsEnabled && CanUsePhoneFrame(display, session.Displays.Capture(display.DeviceName).Mode));
-        toolbar.Show();
-        OwnWindow.SetBounds(toolbar, new(viewport.X, area.Y + area.Height, viewport.Width, viewport.Height - area.Height));
+        ShowDock();
         if (!session.Windows.Focus(active.Handle))
         {
-            toolbar.Hide();
+            toolbar?.Hide();
             throw new InvalidOperationException("无法激活窗口。请点击该应用一次后重试，管理员窗口可能受限。");
         }
         WorkspaceButton.Content = "继续当前窗口";
-        Hide();
+        SyncGestureLayer();
     }
     private void ShowLibrary()
     {
+        InvalidatePoolLaunch();
+        gestureLayer?.Suspend();
         toolbar?.Hide();
         Show();
         if (working) FitLibrary();
         Activate();
         RefreshWindows();
-        WorkspaceButton.Content = session.Active is null ? working ? "返回桌面" : "进入工作台" : "继续当前窗口";
+        WorkspaceButton.Content = session.Active is null ? working ? "收起工作台" : "进入工作台" : "继续当前窗口";
     }
     private void FinishClicked(object sender, RoutedEventArgs e) => Run(FinishWorkspace);
     private void RotateClicked(object sender, RoutedEventArgs e) => Run(RotatePhoneScreen);
@@ -398,6 +391,7 @@ public partial class MainWindow : Window
         RefreshDisplays();
         if (!working) EnterWorkspace();
         else if (IsVisible) FitLibrary();
+        else if (session.Active is null) ShowDock();
         else ShowActive();
         string direction = mode.Width < mode.Height ? "竖屏" : "横屏";
         ConnectionTitle.Text = $"UU 超级屏 · {mode.Width} × {mode.Height} · {direction}";
@@ -409,6 +403,8 @@ public partial class MainWindow : Window
     private void FinishWorkspace() => FinishWorkspace(suppressAutoReconnect: true);
     private void FinishWorkspace(bool suppressAutoReconnect, bool preserveCurrentDisplay = false)
     {
+        InvalidatePoolLaunch();
+        gestureLayer?.Suspend();
         if (suppressAutoReconnect) autoPolicy.SuppressUntilDisconnected(Target);
         targetMissingSince = null;
         previewTimer.Stop();
@@ -475,6 +471,7 @@ public partial class MainWindow : Window
     private void RevertPreview() => Run(FinishWorkspace);
     private void BeginDisplayChange()
     {
+        gestureLayer?.Suspend();
         changingDisplay = true;
         Interlocked.Increment(ref displayGeneration);
         displayRefreshTimer.Stop();
@@ -521,12 +518,18 @@ public partial class MainWindow : Window
         if (Target is { } current && (previous?.Bounds != current.Bounds || previous?.Scale != current.Scale))
             RecoveryStore.WriteLog($"Display layout {current.DeviceName}: {current.Bounds.Width}x{current.Bounds.Height}, scale {current.Scale}.");
         if (working && IsVisible) FitLibrary();
-        else if (working && session.Active is { } active && Target is { } display)
+        else if (working && toolbar is { IsExpanded: true } && Target is { } expandedDisplay)
         {
-            if (!session.Windows.IsSameWindow(active)) { session.RestoreActive(); ShowLibrary(); return; }
-            session.Windows.Place(active.Handle, AppArea(display));
+            if (session.Active is { } expandedActive && session.Windows.IsSameWindow(expandedActive))
+                session.Windows.Place(expandedActive.Handle, AppArea(expandedDisplay));
+            ConfigureDockBounds(expandedDisplay);
+        }
+        else if (working && session.Active is { } active && Target is not null)
+        {
+            if (!session.Windows.IsSameWindow(active)) { ReturnAfterAppClosed(); return; }
             ShowActive();
         }
+        else if (working && Target is not null) ShowDock();
     }
     private void CheckAutoConnection()
     {
@@ -643,6 +646,7 @@ public partial class MainWindow : Window
         {
             if (Target.Bounds != uu.Bounds || Target.WorkArea != uu.WorkArea || Target.Scale != uu.Scale)
                 ScheduleDisplayRefresh();
+            else SyncGestureLayer();
             return;
         }
         if (session.HasUncertainZoom) return;
@@ -651,9 +655,7 @@ public partial class MainWindow : Window
         try { DisplayPicker.ItemsSource = displays; DisplayPicker.SelectedItem = uu; }
         finally { updating = false; }
         UpdateDisplayDetails();
-        Show();
         EnterWorkspace(automatically: true);
-        Activate();
         SetStatus(portraitFailure ?? $"已自动接入 UU · {uu.Bounds.Width} × {uu.Bounds.Height}，屏幕变化时自动调整。", portraitFailure is not null);
         RecoveryStore.WriteLog($"Auto-connected {uu.DeviceName}: {uu.Bounds.Width}x{uu.Bounds.Height}, scale {uu.Scale}.");
     }
@@ -697,7 +699,6 @@ public partial class MainWindow : Window
             }
             finally { updating = false; }
             UpdateDisplayDetails();
-            ShowLibrary();
             EnterWorkspace(automatically: true);
             ConnectionTitle.Text = $"{phoneProfile.Name} · {mode.Width} × {mode.Height}";
             ConnectionHint.Text = $"已按{phoneProfile.Name}自动适配。";

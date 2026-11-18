@@ -1,4 +1,5 @@
 using PocketDesk.Core;
+using PocketDesk.Native;
 
 namespace PocketDesk.Tests;
 
@@ -6,59 +7,48 @@ internal static partial class Program
 {
     private static void TestToolbarLayout()
     {
-        Test("Phone portrait uses a lightweight toolbar without duplicating UU controls", () =>
+        Test("Phone portrait positions the handle above UU and the taskbar inside the supplied viewport", () =>
         {
-            var layout = ToolbarLayout.Measure(402, 874);
-            Require(layout.Height == 44 && !layout.IsCompact, "Portrait toolbar did not reserve one lightweight row.");
-            Require(layout.ContentMaxWidth <= 386 && layout.ContentMaxWidth > 0, "Portrait controls exceed the available width.");
-            Require(layout.PopupMaxWidth <= 386 && layout.PopupMaxWidth > 0, "Portrait action panel exceeds the screen.");
-            Require(layout.PopupMaxHeight <= 874 - layout.Height - 16 && layout.PopupMaxHeight > 0,
-                "Portrait action panel overlaps the reserved toolbar.");
+            var v = new PixelRect(-1800, 63, 1200, 1850);
+            var p = ToolbarPlacement.Measure(v, 3, LandscapeToolbarPlacement.Right);
+            Require(p.Edge == DockEdge.Bottom && p.Bar == new PixelRect(-1800, 1817, 1200, 96), "Strip was not anchored to the bottom of the safe viewport.");
+            Require(p.App.Height + p.Bar.Height == v.Height && p.App.Y + p.App.Height == p.Bar.Y, "Workspace must end at the hit strip.");
+            Require(p.Panel.Width <= v.Width && p.Panel.Y + p.Panel.Height == v.Y + v.Height, "Portrait sheet overlaps space outside viewport.");
         });
-
-        Test("Short phone landscape toolbar keeps the same touch row and a bounded popup", () =>
+        Test("Left and right landscape placements keep the desk and sheet entirely inside the safe area", () =>
         {
-            var layout = ToolbarLayout.Measure(874, 402);
-            Require(layout.Height == 44 && layout.IsCompact, "Landscape toolbar used a second reserved row.");
-            Require(layout.ContentMaxWidth <= 480, "Landscape actions stretch beyond their shared width limit.");
-            Require(layout.PopupMaxWidth <= 320 && layout.PopupMaxWidth > 0, "Landscape action panel exceeds its width limit.");
-            Require(layout.PopupMaxHeight <= 402 - layout.Height - 16 && layout.PopupMaxHeight > 0,
-                "Landscape action panel exceeds the remaining screen height.");
-        });
-
-        Test("Tablet toolbar sizing stays consistent across both orientations", () =>
-        {
-            var portrait = ToolbarLayout.Measure(834, 1194);
-            var landscape = ToolbarLayout.Measure(1194, 834);
-            Require(portrait.Height == 44 && landscape.Height == 44, "Tablet toolbar reservation changed with orientation.");
-            Require(!portrait.IsCompact && landscape.IsCompact, "Tablet orientation state is reversed.");
-            Require(portrait.ContentMaxWidth <= 480 && landscape.ContentMaxWidth <= 480,
-                "Tablet controls stretch across the entire screen.");
-            Require(landscape.PopupMaxHeight <= 834 - landscape.Height - 16,
-                "Tablet action panel exceeds the work area.");
-        });
-
-        Test("Tiny available areas never produce a negative popup or toolbar overflow", () =>
-        {
-            var layout = ToolbarLayout.Measure(12, 20);
-            Require(layout.Height == 20, "Toolbar extends below the entire available height.");
-            Require(layout.ContentMaxWidth == 0 && layout.PopupMaxWidth == 0,
-                "Small positive widths produced negative or overflowing content bounds.");
-            Require(layout.PopupMaxHeight == 0, "Unavailable popup space must be represented as zero.");
-        });
-
-        Test("Toolbar rejects non-finite or non-positive dimensions before layout", () =>
-        {
-            foreach (var invalid in new[] { 0d, -1d, double.NaN, double.PositiveInfinity, double.NegativeInfinity })
+            var v = new PixelRect(-1920, -80, 1920, 1100);
+            foreach (var side in new[] { LandscapeToolbarPlacement.Left, LandscapeToolbarPlacement.Right })
             {
-                bool widthRejected = false;
-                bool heightRejected = false;
-                try { ToolbarLayout.Measure(invalid, 874); }
-                catch (ArgumentOutOfRangeException) { widthRejected = true; }
-                try { ToolbarLayout.Measure(402, invalid); }
-                catch (ArgumentOutOfRangeException) { heightRejected = true; }
-                Require(widthRejected && heightRejected, $"Invalid dimension {invalid} was accepted.");
+                var p = ToolbarPlacement.Measure(v, 2.5, side);
+                Require(p.Bar.Width == 80 && p.Bar.Height == v.Height && p.App.Height == v.Height, "Landscape must reserve a side edge rather than a row.");
+                Require(p.App.Width + p.Bar.Width == v.Width && (side == LandscapeToolbarPlacement.Left ? p.Bar.X + p.Bar.Width == p.App.X : p.App.X + p.App.Width == p.Bar.X), "Window and strip misaligned.");
+                Require(p.Panel.X >= v.X && p.Panel.X+p.Panel.Width <= v.X+v.Width && p.Panel.Y >= v.Y && p.Panel.Y+p.Panel.Height <= v.Y+v.Height, "Panel escaped the viewport.");
             }
+        });
+        Test("Landscape bottom, hidden and square tablet select deterministic dock edges", () =>
+        {
+            var v = new PixelRect(0, 0, 1200, 800);
+            Require(ToolbarPlacement.Measure(v, 2, LandscapeToolbarPlacement.Bottom).Edge == DockEdge.Bottom, "Bottom toolbar preference lost.");
+            Require(ToolbarPlacement.Measure(v, 2, LandscapeToolbarPlacement.Hidden).Edge == DockEdge.Right, "Hidden UU controls should not force bottom in landscape.");
+            Require(ToolbarPlacement.Measure(v with { Width=800 }, 2, LandscapeToolbarPlacement.Left).Edge == DockEdge.Bottom, "Square viewport should use the bottom handle.");
+        });
+        Test("Very small safe areas still produce bounded nonempty rectangles", () =>
+        {
+            var p = ToolbarPlacement.Measure(new PixelRect(30, 40, 12, 20), 3, LandscapeToolbarPlacement.Left);
+            Require(p.App.Width > 0 && p.App.Height > 0 && p.Bar.Height == 19 && p.Panel == new PixelRect(30,40,12,20), "Tiny viewport overflowed.");
+        });
+        Test("Dock geometry rejects non-finite scales and overflowing screen coordinates", () =>
+        {
+            foreach (var bad in new[] { 0d, -1d, double.NaN, double.PositiveInfinity })
+            {
+                bool rejected = false; try { ToolbarPlacement.Measure(new(0,0,402,874), bad, default); }
+                catch (ArgumentOutOfRangeException) { rejected = true; }
+                Require(rejected, "Invalid scale was accepted.");
+            }
+            bool overflow = false;
+            try { ToolbarPlacement.Measure(new(int.MaxValue,0,2,2), 1, default); } catch(ArgumentOutOfRangeException) { overflow = true; }
+            Require(overflow, "Invalid screen bounds were accepted.");
         });
     }
 }
