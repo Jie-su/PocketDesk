@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer controllerTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
     private readonly UuControllerService controllerService = new();
     private readonly ControllerDisconnectPolicy controllerDisconnect = new();
+    private long observedReconnectionGeneration;
     private readonly DevicePreferenceStore devicePreferences = new();
     private readonly ViewportPreferenceStore viewportPreferences = new();
     private bool updatingViewportControls;
@@ -535,6 +536,20 @@ public partial class MainWindow : Window
         var reportedMode = connectedUu is null ? null : session.Displays.Capture(connectedUu.DeviceName).Mode;
         var deviceDecision = ResolveDeviceDecision(connectedUu, reportedMode,
             working && automaticWorkspace ? phoneProfile : legacyProfile);
+        if (connectedUu is not null && observedReconnectionGeneration != controllerDisconnect.ReconnectionGeneration)
+        {
+            observedReconnectionGeneration = controllerDisconnect.ReconnectionGeneration;
+            // UU may keep its virtual monitor attached across two control
+            // sessions. Fresh single-controller evidence, not a resolution
+            // change, permits the new session to start after a manual finish.
+            if (autoPolicy.AllowCurrentConnection(connectedUu, deviceDecision))
+            {
+                portraitAttempt.ExplicitRetry();
+                portraitFailure = null;
+                recoveryRetryDevice = null;
+                RecoveryStore.WriteLog("Confirmed a new mobile controller connection; reset this display's automatic adaptation attempt.");
+            }
+        }
         var desired = deviceDecision.Profile is { } found ? devicePreferences.Apply(found) : null;
         var eligibility = desired is null ? null : $"{desired.PortraitWidth}x{desired.PortraitHeight}";
         if (eligibility != eligibleProfileKey &&

@@ -85,7 +85,7 @@ internal static partial class Program
                     "Same fallback pixels overrode evidence of another or ambiguous controller.");
         });
 
-        Test("Session-level Defer keeps the complete persisted display window and ownership journal untouched", () =>
+        Test("Session capture failure keeps Defer and the complete display window and ownership journal untouched", () =>
         {
             WithIsolatedStore(store =>
             {
@@ -94,7 +94,7 @@ internal static partial class Program
                 var session = new WorkspaceSession(store);
                 Require(session.RequiresAutomaticRecoveryEvidence, "Selected fallback session did not request controller evidence.");
                 Require(session.AutomaticRecoveryDecision(new(UuControllerStatus.Unknown, [], now), now) == AutomaticRecoveryDecision.Defer,
-                    "Session wrapper did not defer automatic recovery.");
+                    "An unreadable synthetic display did not retain the deferred recovery decision.");
                 Require(session.HasRecovery && session.HasDisplayChange && System.IO.File.ReadAllText(store.PathName) == before,
                     "Defer discarded or rewrote durable recovery data.");
                 var retained = store.Load();

@@ -10,10 +10,10 @@
 
 Built for an existing UU Remote virtual display · Window library · Manual rotation · Session recovery
 
-[![Pre-release](https://img.shields.io/badge/version-v0.1.0--pre--release-orange)](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.0)
+[![Pre-release](https://img.shields.io/badge/version-v0.1.1--pre--release-orange)](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.1)
 ![Windows 11 x64](https://img.shields.io/badge/Windows-11%20x64-blue)
 ![WPF](https://img.shields.io/badge/.NET-10%20%7C%20WPF-512BD4)
-[![Tests](https://img.shields.io/badge/tests-186%20passed-brightgreen)](TESTING.md)
+[![Tests](https://img.shields.io/badge/tests-199%20passed-brightgreen)](TESTING.md)
 [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 [Download](#download) · [Features](#features) · [Install](#install) · [Usage](#usage) · [Limitations](#known-limitations) · [Development](#development)
@@ -24,9 +24,9 @@ PocketDesk is an independent Windows implementation inspired by [Snug](https://g
 
 ## Download
 
-**[Download v0.1.0 pre-release](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.0)** · [All releases](https://github.com/Jie-su/PocketDesk/releases)
+**[Download v0.1.1 pre-release](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.1)** · [All releases](https://github.com/Jie-su/PocketDesk/releases)
 
-**Windows 11 x64 recommended.** Other Windows versions supported by .NET 10 have not been fully validated; see [Microsoft's compatibility table](https://learn.microsoft.com/en-us/dotnet/core/install/windows). Extract the complete self-contained archive and run `PocketDesk.exe`; a separate .NET installation is not required. This initial release is unsigned and has no automatic updater.
+**Windows 11 x64 recommended.** Other Windows versions supported by .NET 10 have not been fully validated; see [Microsoft's compatibility table](https://learn.microsoft.com/en-us/dotnet/core/install/windows). Extract the complete self-contained archive and run `PocketDesk.exe`; a separate .NET installation is not required. This release is unsigned and has no automatic updater.
 
 ## Screenshots
 
@@ -78,7 +78,7 @@ More details: [User guide](docs/user-guide.md) and [How it works](docs/how-it-wo
 - UU updates or inaccessible UI can return Unknown. Unknown with an attached display is not proof of disconnection; finish the session manually when necessary.
 - Common fallback resolutions can also belong to a PC. Automatic recovery defers with the full journal intact when controller evidence is insufficient. Physical monitor enablement/topology managed by UU is not guaranteed to be restored.
 - At approximately 643×378 logical pixels, the first application action row may require scrolling.
-- **186 regression tests passed.** Phone testing confirmed the final landscape view clears the left UU overlay, the Windows taskbar is clickable, and opening applications no longer produces the reported minimum-size warning. The final window-recovery fix has not yet had another real-device exit test. Latency has not been measured. See [TESTING.md](TESTING.md).
+- **199 local regression tests passed.** An iPhone 17 Pro regained portrait mode automatically after disconnecting from UU and reconnecting. Restoration of individual third-party windows still needs further device testing. Latency has not been measured. See [TESTING.md](TESTING.md).
 
 ## Development
 

@@ -16,8 +16,19 @@ public sealed class WorkspaceSession
     public bool HasDisplayChange => state.Display is not null;
     public bool HasUncertainZoom => state.Windows.Any(w => w.ZoomUncertain);
     public bool RequiresAutomaticRecoveryEvidence => state.PhoneDisplayOwner?.SelectedFallbackSizes is { Count: > 0 };
-    public AutomaticRecoveryDecision AutomaticRecoveryDecision(UuControllerSnapshot? snapshot, DateTimeOffset? now = null) =>
-        AutomaticRecoveryEvidencePolicy.Decide(state, snapshot, now);
+    public AutomaticRecoveryDecision AutomaticRecoveryDecision(UuControllerSnapshot? snapshot, DateTimeOffset? now = null)
+    {
+        var decision = AutomaticRecoveryEvidencePolicy.Decide(state, snapshot, now);
+        if (decision != Core.AutomaticRecoveryDecision.Defer || state.Display is not { } original) return decision;
+        try
+        {
+            // Read-only. A successful match releases the obsolete display target
+            // with Preserve, so a later controller change cannot trigger a write.
+            var current = Displays.Capture(original.DeviceName);
+            return AutomaticRecoveryEvidencePolicy.AllowReleaseWhenAlreadyRestored(decision, state, current);
+        }
+        catch { return decision; } // Missing/unreadable displays still retain the complete journal.
+    }
     public int AdjustedRestoreCount { get; private set; }
     public WorkspaceSession(RecoveryStore store) { this.store = store; state = store.Load(); }
 
@@ -336,7 +347,7 @@ public sealed class WorkspaceSession
                     }
                     else RecoveryStore.WriteLog($"未写入旧显示模式：当前为 {current.Mode.Width}×{current.Mode.Height}，已还原或属于新的外部模式。");
                 }
-                else RecoveryStore.WriteLog("控制端已交接，保留当前显示模式并释放旧显示恢复目标。");
+                else RecoveryStore.WriteLog("保留当前显示模式并释放旧显示恢复目标（控制端交接或已确认还原）。");
                 ClearDisplayRecovery();
             }
             catch (Exception ex) { errors.Add("显示模式：" + ex.Message); }

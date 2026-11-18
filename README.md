@@ -10,10 +10,10 @@
 
 配合 UU 远程超级屏 · 应用窗口库 · 横竖屏切换 · 会话还原
 
-[![预发布](https://img.shields.io/badge/version-v0.1.0--pre--release-orange)](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.0)
+[![预发布](https://img.shields.io/badge/version-v0.1.1--pre--release-orange)](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.1)
 ![Windows 11 x64](https://img.shields.io/badge/Windows-11%20x64-blue)
 ![WPF](https://img.shields.io/badge/.NET-10%20%7C%20WPF-512BD4)
-[![Tests](https://img.shields.io/badge/tests-186%20passed-brightgreen)](TESTING.md)
+[![Tests](https://img.shields.io/badge/tests-199%20passed-brightgreen)](TESTING.md)
 [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 [下载](#下载) · [功能](#功能) · [安装](#安装) · [使用](#使用) · [限制](#已知限制) · [开发](#开发)
@@ -24,9 +24,9 @@ PocketDesk 是受 [Snug](https://github.com/zephyr4123/snug) 启发的独立 Win
 
 ## 下载
 
-**[下载 v0.1.0 预发布版](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.0)** · [全部版本](https://github.com/Jie-su/PocketDesk/releases)
+**[下载 v0.1.1 预发布版](https://github.com/Jie-su/PocketDesk/releases/tag/v0.1.1)** · [全部版本](https://github.com/Jie-su/PocketDesk/releases)
 
-推荐 **Windows 11 x64**；其他受 .NET 10 支持的 Windows 版本尚未全面验证，参见 [Microsoft 兼容表](https://learn.microsoft.com/en-us/dotnet/core/install/windows)。自包含压缩包无需另装 .NET；解压整个发行目录后运行 `PocketDesk.exe`。首版为未签名预发布，不提供自动更新；更新方式见[使用指南](docs/user-guide.md)。
+推荐 **Windows 11 x64**；其他受 .NET 10 支持的 Windows 版本尚未全面验证，参见 [Microsoft 兼容表](https://learn.microsoft.com/en-us/dotnet/core/install/windows)。自包含压缩包无需另装 .NET；解压整个发行目录后运行 `PocketDesk.exe`。此版本为未签名预发布，不提供自动更新；更新方式见[使用指南](docs/user-guide.md)。
 
 ## 界面预览
 
@@ -80,7 +80,7 @@ PocketDesk 只读取 UU 可访问性界面，不主动激活或恢复 UU 窗口�
 - **只读识别可能暂时不可用**：UU 更新或面板不可读时会返回 Unknown。虚拟屏仍连接时，不能仅凭 Unknown 推断远程已结束；请手动「结束并还原」。
 - **恢复需要证据**：标准备用模式可能与 PC 相同，自动恢复在控制者证据不足时保留完整记录等待重试，不冒险覆盖接管者的分辨率。不保证恢复 UU 管理的物理屏启用状态或拓扑。
 - **短横屏需要滚动**：约 643×378 逻辑尺寸的应用页首个窗口操作行可能位于首屏下面，可以滚动访问。
-- **首版验证范围有限**：186 项回归通过；手机横屏的左侧避让、任务栏点击、应用最小尺寸问题已获实机确认。最后一轮窗口恢复修复尚未再次实机退出验收，延迟也未量化。完整范围见 [TESTING.md](TESTING.md)。
+- **验证范围**：199 项本地回归通过。iPhone 17 Pro 直接断开 UU 后重连，已实测可再次自动竖屏。第三方应用窗口能否逐一恢复到原位仍需验证，延迟也未量化。完整范围见 [TESTING.md](TESTING.md)。
 
 ## 开发
 

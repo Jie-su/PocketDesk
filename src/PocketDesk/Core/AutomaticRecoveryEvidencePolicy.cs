@@ -11,6 +11,27 @@ public enum AutomaticRecoveryDecision { Restore, Preserve, Defer }
 /// </summary>
 public static class AutomaticRecoveryEvidencePolicy
 {
+    /// <summary>
+    /// An unreadable controller need not block recovery when the entire original
+    /// display state is already back. Return Preserve, never Restore: another
+    /// controller may change the mode after this observation, and releasing the
+    /// old target must not write that mode again. Window recovery remains intact.
+    /// </summary>
+    public static AutomaticRecoveryDecision AllowReleaseWhenAlreadyRestored(
+        AutomaticRecoveryDecision decision, RecoveryState state, DisplaySnapshot? current)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (decision != AutomaticRecoveryDecision.Defer || state.Display is not { } original || current is null)
+            return decision;
+        if (string.IsNullOrWhiteSpace(original.DeviceName) || string.IsNullOrWhiteSpace(original.Identity) ||
+            string.IsNullOrWhiteSpace(current.Identity) || original.Mode is null || current.Mode is null)
+            return decision;
+        return string.Equals(original.DeviceName, current.DeviceName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(original.Identity, current.Identity, StringComparison.OrdinalIgnoreCase) &&
+            original.Mode == current.Mode && original.PositionX == current.PositionX && original.PositionY == current.PositionY
+            ? AutomaticRecoveryDecision.Preserve : decision;
+    }
+
     public static AutomaticRecoveryDecision Decide(RecoveryState state, UuControllerSnapshot? snapshot,
         DateTimeOffset? now = null)
     {

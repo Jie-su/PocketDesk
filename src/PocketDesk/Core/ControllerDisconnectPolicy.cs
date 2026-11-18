@@ -12,9 +12,15 @@ public sealed class ControllerDisconnectPolicy
     public static readonly TimeSpan DisplayDisconnectGrace = TimeSpan.FromSeconds(1);
     private DateTimeOffset? absentSince;
     private DateTimeOffset? lastEvidenceAt;
-    private UuControllerStatus lastEvidenceStatus;
 
     public bool KnownDisconnected { get; private set; }
+    /// <summary>
+    /// Increases once when a newer, fresh single controller confirms connection
+    /// after an explicit None. Consumers can observe this after any UI read path
+    /// without losing the event or treating a repeated snapshot as another retry.
+    /// Physical monitor reconnection remains governed by the existing gap policy.
+    /// </summary>
+    public long ReconnectionGeneration { get; private set; }
 
     /// <param name="displayKey">Identity of an actually attached, verified UU
     /// display, or null when no such display is attached. UI visibility is not
@@ -44,15 +50,19 @@ public sealed class ControllerDisconnectPolicy
         if (age < TimeSpan.Zero || age > DeviceSessionPolicy.MaximumControllerAge ||
             snapshot.Status is not (UuControllerStatus.None or UuControllerStatus.Available or UuControllerStatus.Ambiguous))
             return KnownDisconnected;
+        if (snapshot.Status == UuControllerStatus.None && snapshot.Names is not { Count: 0 })
+            return KnownDisconnected;
+        if (snapshot.Status == UuControllerStatus.Available &&
+            (snapshot.Names is not { Count: 1 } || !IsUsableName(snapshot.Names[0])))
+            return KnownDisconnected;
 
         // The same snapshot may be examined by several UI paths. After a real
         // disconnect/reconnect, replaying its old None must not immediately
-        // latch again. Older evidence also cannot override a newer controller.
-        bool newer = lastEvidenceAt is null || snapshot.ObservedAt > lastEvidenceAt.Value ||
-            (snapshot.ObservedAt == lastEvidenceAt.Value && snapshot.Status != lastEvidenceStatus);
+        // latch again. A conflicting status with the same timestamp is also not
+        // newer evidence; accepting it could alternate None/Available forever.
+        bool newer = lastEvidenceAt is null || snapshot.ObservedAt > lastEvidenceAt.Value;
         if (!newer) return KnownDisconnected;
         lastEvidenceAt = snapshot.ObservedAt;
-        lastEvidenceStatus = snapshot.Status;
         if (snapshot.Status == UuControllerStatus.None)
         {
             if (!KnownDisconnected)
@@ -61,11 +71,18 @@ public sealed class ControllerDisconnectPolicy
                 absentSince = attached ? null : observedNow;
             }
         }
-        else
+        else if (snapshot.Status == UuControllerStatus.Available)
         {
+            if (KnownDisconnected) ReconnectionGeneration++;
             KnownDisconnected = false;
             absentSince = null;
         }
+        // Multiple controllers cannot authorize clearing a manual stop or
+        // consuming another initial portrait attempt. Keep the None latch until
+        // a newer single-controller observation or a real monitor reconnection.
         return KnownDisconnected;
     }
+
+    private static bool IsUsableName(string? name) =>
+        !string.IsNullOrWhiteSpace(name) && name.Length <= 256 && !name.Any(char.IsControl);
 }

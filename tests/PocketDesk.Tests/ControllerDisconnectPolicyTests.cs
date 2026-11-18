@@ -24,16 +24,14 @@ internal static partial class Program
             Require(policy.KnownDisconnected, "Observe and the exposed state disagree.");
         });
 
-        Test("A new reliable available or ambiguous controller clears the disconnect latch", () =>
+        Test("A new reliable single controller clears the disconnect latch", () =>
         {
-            foreach (var status in new[] { UuControllerStatus.Available, UuControllerStatus.Ambiguous })
-            {
-                var policy = new ControllerDisconnectPolicy();
-                policy.Observe(none, display, start);
-                Require(!policy.Observe(new(status, ["new-controller"], start.AddSeconds(1)), display, start.AddSeconds(1)),
-                    "New reliable controller evidence did not release disconnection.");
-                Require(!policy.KnownDisconnected, "Cleared evidence retained a stale latch.");
-            }
+            var policy = new ControllerDisconnectPolicy();
+            policy.Observe(none, display, start);
+            Require(!policy.Observe(new(UuControllerStatus.Available, ["test-controller"], start.AddSeconds(1)), display, start.AddSeconds(1)),
+                "New reliable controller evidence did not release disconnection.");
+            Require(!policy.KnownDisconnected && policy.ReconnectionGeneration == 1,
+                "Cleared evidence failed to expose exactly one reconnection.");
         });
 
         Test("Short monitor reconstruction gaps cannot reopen a disconnected controller", () =>
@@ -55,6 +53,7 @@ internal static partial class Program
             Require(!policy.Observe(none, display, start.AddMilliseconds(1100)),
                 "A real reconnect failed to clear the latch or replayed the same None immediately.");
             Require(!policy.KnownDisconnected, "Exposed latch did not reflect the new display connection.");
+            Require(policy.ReconnectionGeneration == 0, "A physical reconnect invented a controller evidence event.");
         });
 
         Test("Replaying old None cannot override a more recent connected controller", () =>

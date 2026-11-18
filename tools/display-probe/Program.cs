@@ -5,6 +5,34 @@ using PocketDesk.Core;
 
 // Read-only display/window diagnostics. No mode writes, window moves or UIA probes.
 var service = new DisplayService();
+if (args.Contains("--recovery-decision"))
+{
+    var store = new RecoveryStore();
+    var saved = store.Load();
+    var session = new WorkspaceSession(store);
+    var unknown = new UuControllerSnapshot(UuControllerStatus.Unknown, [], DateTimeOffset.UtcNow);
+    DisplaySnapshot? observed = null;
+    string? captureError = null;
+    if (saved.Display is { } original)
+    {
+        try { observed = service.Capture(original.DeviceName); }
+        catch (InvalidOperationException ex) { captureError = ex.Message; }
+    }
+    // Decisions and counts only: do not expose window identities or write the journal.
+    Console.WriteLine(JsonSerializer.Serialize(new
+    {
+        session.HasRecovery, session.HasDisplayChange, session.RequiresAutomaticRecoveryEvidence,
+        EvidenceOnlyDecision = AutomaticRecoveryEvidencePolicy.Decide(saved, unknown).ToString(),
+        VerifiedDisplayDecision = session.AutomaticRecoveryDecision(unknown).ToString(),
+        SavedWindowCount = saved.Windows.Count,
+        CaptureError = captureError,
+        IdentityMatches = observed is not null && string.Equals(saved.Display?.Identity, observed.Identity, StringComparison.OrdinalIgnoreCase),
+        OriginalMode = saved.Display?.Mode, CurrentMode = observed?.Mode,
+        OriginalPosition = saved.Display is null ? null : new { saved.Display.PositionX, saved.Display.PositionY },
+        CurrentPosition = observed is null ? null : new { observed.PositionX, observed.PositionY }
+    }, new JsonSerializerOptions { WriteIndented = true }));
+    return;
+}
 if (args.Contains("--restore-constraints"))
 {
     var recovery = new RecoveryStore().Load();

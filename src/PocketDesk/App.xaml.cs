@@ -58,6 +58,9 @@ public partial class App : Application
         singleton = new Mutex(false, "Local\\PocketDesk.Main");
         try { ownsSingleton = singleton.WaitOne(0); } catch (AbandonedMutexException) { ownsSingleton = true; }
         if (!ownsSingleton) { MessageBox.Show("手机工作台已经运行或正在恢复，请稍后从任务栏打开。", "PocketDesk"); Shutdown(); return; }
+        var buildVersion = typeof(App).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion;
+        RecoveryStore.WriteLog($"PocketDesk started: {buildVersion ?? "unknown version"}.");
         DispatcherUnhandledException += (_, args) =>
         {
             RecoveryStore.WriteLog(args.Exception.ToString());

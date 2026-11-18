@@ -18,26 +18,26 @@ CI 或隔离发布可使用独立构建目录，避免覆盖正在运行的开�
 ```powershell
 ./build.ps1 -PureTest -BuildDir artifacts/ci-build
 ./build.ps1 -PureTest -Publish -BuildDir artifacts/release-build -PublishDir artifacts/release-publish
-./scripts/package-release.ps1 -PublishDir artifacts/release-publish -OutputDir artifacts/release-assets -Version 0.1.0
+./scripts/package-release.ps1 -PublishDir artifacts/release-publish -OutputDir artifacts/release-assets -Version 0.1.1
 ```
 
 `-PureTest` 与 `-Test` 互斥。前者仅运行无窗口纯策略子集，适用于 CI；后者保留完整交互式夹具。需要本地完整验证时将发布命令中的 `-PureTest` 换成 `-Test`。打包脚本使用公开文件允许列表，包含清理后的文档、手机截图和图标，使相对链接可在发行目录读取；不把本地历史或诊断目录加入发行包。
 
 ## 手动预发布
 
-CI 配置已提供，但本次发行仅取得本地验证结果，尚未运行 CI。自动工作流未运行或未完成时，可以使用本地已验证、与标签源码一致的归档手动发布；不要把本地结果表述为 CI 通过。
+分支推送运行 Windows CI；推送版本标签会另行触发打包与发布。自动工作流未运行或未完成时，可以使用本地已验证、与标签源码一致的归档手动发布；不要把本地结果表述为 CI 通过。
 
 先确认目标提交、归档与校验文件，再创建并推送标签；如果标签已存在，核对其提交，不覆盖已有标签：
 
 ```powershell
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 推送标签会尝试触发发行工作流；若没有生成发行结果，可以使用 GitHub CLI 手动创建同一预发布。将下列 `<ZIP>` 与 `<SHA256SUMS>` 替换为本次打包输出的真实文件路径：
 
 ```text
-gh release create v0.1.0 <ZIP> <SHA256SUMS> --verify-tag --prerelease --notes-file release-notes/v0.1.0.md
+gh release create v0.1.1 <ZIP> <SHA256SUMS> --verify-tag --prerelease --notes-file release-notes/v0.1.1.md
 ```
 
 执行前检查是否已存在该版本，避免与工作流重复创建或覆盖资产。发布后核对版本标记、预发布状态、资产及 SHA-256 校验文件。
@@ -63,7 +63,7 @@ dotnet run --project tests/PocketDesk.Tests/PocketDesk.Tests.csproj -c Release -
 dotnet run --project tests/PocketDesk.Tests/PocketDesk.Tests.csproj -c Release -- --layout-tests
 ```
 
-这两个入口只运行子集，不能把 CI 通过等同于完整 186 项或手机实机验收。独立编译核心与原生源码可加 `-p:NativeOnly=true`；通常开发优先使用默认产品引用。
+这两个入口只运行子集，不能把 CI 通过等同于完整回归或手机实机验收。独立编译核心与原生源码可加 `-p:NativeOnly=true`；通常开发优先使用默认产品引用。
 
 布局预览示例：
 

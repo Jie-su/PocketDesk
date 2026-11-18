@@ -16,6 +16,21 @@ public sealed class AutoWorkspacePolicy
     {
         if (display is { IsUuVirtual: true }) suppressed[Key(display)] = null;
     }
+    /// <summary>
+    /// Releases only this verified display's manual-stop marker after the caller
+    /// has consumed a confirmed reconnection generation for an identified mobile
+    /// profile. A reconnected PC or dimension fallback cannot authorize mobile
+    /// adaptation. This does not enable auto-follow or release other displays.
+    /// </summary>
+    public bool AllowCurrentConnection(DisplayInfo? display, DeviceSessionDecision decision)
+    {
+        if (display is not { IsUuVirtual: true } || decision is not
+            { IsControllerIdentified: true, Profile.HasDimensions: true } ||
+            decision.Profile.PortraitWidth > 16384 || decision.Profile.PortraitHeight > 16384 ||
+            decision.Profile.LogicalWidth is < 240 or > 1200) return false;
+        suppressed.Remove(Key(display));
+        return true;
+    }
     public DisplayInfo? Observe(IReadOnlyList<DisplayInfo> displays, bool enabled)
     {
         var connected = displays.Where(d => d.IsUuVirtual).ToArray();

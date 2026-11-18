@@ -46,6 +46,8 @@ internal static partial class Program
             TestSupportedFramePolicy();
             TestSelectedFallbackRecovery();
             TestAutomaticRecoveryEvidencePolicy();
+            TestAlreadyRestoredRecovery();
+            TestReconnectionContracts();
             TestSwappedOwnedRotation();
             TestMaximizedRestoreBounds();
             return Finish();
@@ -76,6 +78,8 @@ internal static partial class Program
         TestSupportedFramePolicy();
         TestSelectedFallbackRecovery();
         TestAutomaticRecoveryEvidencePolicy();
+        TestAlreadyRestoredRecovery();
+        TestReconnectionContracts();
         TestSwappedOwnedRotation();
         TestMaximizedRestoreBounds();
 
